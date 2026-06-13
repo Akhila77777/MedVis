@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Plan — Image-Guided Needle Insertion Planning</title>
+<style>
+  :root {
+    --accent: #2563eb;
+    --bg: #fafafa;
+    --text: #1f2330;
+    --muted: #5b6472;
+    --border: #e3e6ea;
+  }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--bg);
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+  h1, h2, h3 { line-height: 1.25; }
+  h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { color: var(--accent); margin-top: 1.5rem; }
+  .subtitle { color: var(--muted); margin-top: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef2ff; }
+  code {
+    background: #f1f3f6;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  pre {
+    background: #1f2330;
+    color: #f5f7fa;
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+  }
+  .callout {
+    background: #eef6ff;
+    border-left: 4px solid var(--accent);
+    padding: 0.8rem 1rem;
+    border-radius: 0 6px 6px 0;
+    margin: 1rem 0;
+  }
+  .roadmap-week {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    margin: 1rem 0;
+    background: #fff;
+  }
+  .roadmap-week h3 { margin-top: 0; }
+  a { color: var(--accent); }
+  .badge {
+    display: inline-block;
+    background: #e0f2fe;
+    color: #075985;
+    border-radius: 4px;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-right: 0.3rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>Image-Guided Needle Insertion Planning</h1>
+<p class="subtitle">A self-study portfolio project combining medical visualization software with
+a full systems-engineering description of the same workflow.</p>
+
+<h2>1. The aim</h2>
+<p>
+You're building <strong>one</strong> coherent project, attacked from two directions:
+</p>
+<ul>
+  <li><strong>Build it:</strong> a small 3D Slicer module that helps plan a percutaneous
+  needle insertion (e.g. a liver biopsy or tumour ablation) &mdash; place an entry point
+  and a target on a CT scan, draw the trajectory between them, and check whether that
+  line crosses a structure it shouldn't (a major vessel, a "no-go" zone).</li>
+  <li><strong>Describe and de-risk it:</strong> model that exact same clinical workflow
+  using professional systems-engineering methods &mdash; an Arcadia/MBSE model in Capella,
+  an IREB-style requirements specification with traceability, and an ISO&nbsp;14971-style
+  hazard analysis.</li>
+</ul>
+<div class="callout">
+Why this combination? A working tool proves you can code in the medical-imaging domain.
+The SE artifacts prove you think rigorously about <em>why</em> the tool needs to do what
+it does, and <em>what could go wrong</em> if it doesn't &mdash; which is exactly the
+mindset that matters for interventional/medical research groups.
+</div>
+
+<h2>2. The two halves explained</h2>
+
+<h3>2.1 The technical half: 3D Slicer + Python (+ VTK/ITK, optionally MONAI)</h3>
+<p>
+<a href="https://www.slicer.org/" target="_blank">3D Slicer</a> is a free, open-source
+desktop application for medical image analysis and visualization. It is built on top of
+two lower-level C++ libraries:
+</p>
+<ul>
+  <li><strong>VTK</strong> (Visualization Toolkit) &mdash; rendering, meshes, volume
+  rendering, 3D scenes.</li>
+  <li><strong>ITK</strong> (Insight Toolkit) &mdash; image processing and segmentation
+  algorithms (filters, registration, marching cubes, etc.).</li>
+</ul>
+<p>
+Slicer ships with its own bundled Python 3.9 interpreter and exposes the entire VTK/ITK
+API plus its own data model (<code>vtkMRMLScene</code>, volumes, segmentations,
+fiducials/markups, models). You write a <strong>"scripted module"</strong> &mdash; a
+Python file with a small amount of boilerplate &mdash; and it appears as a panel in the
+Slicer UI, with full access to whatever volume/segmentation the user has loaded.
+</p>
+<p>
+For this project the module will:
+</p>
+<ol>
+  <li>Load a CT volume (from a public dataset) and a segmentation of an organ + a vessel.</li>
+  <li>Let the user place two fiducial points: <em>entry</em> and <em>target</em>.</li>
+  <li>Draw a line (the planned needle trajectory) between them.</li>
+  <li>Check whether that line intersects the vessel segmentation.</li>
+  <li>Show a clear pass/fail result in the UI.</li>
+</ol>
+<p>
+<strong>Optional stretch (MONAI/PyTorch):</strong>
+<a href="https://monai.io/" target="_blank">MONAI</a> is a PyTorch-based framework for
+medical imaging deep learning. The stretch goal is to train a small U-Net on a public
+segmentation dataset (e.g. liver or hepatic vessels from the
+<a href="http://medicaldecathlon.com/" target="_blank">Medical Segmentation Decathlon</a>),
+then load the resulting segmentation into the Slicer module above &mdash; bridging "deep
+learning" and "visualization/planning" in one pipeline.
+</p>
+
+<h3>2.2 The systems-engineering half: Capella/Arcadia, IREB, ISO 14971</h3>
+
+<p><span class="badge">MBSE</span> <strong>Capella</strong> is a free, open-source
+Model-Based Systems Engineering (MBSE) tool originally developed by Thales, built on
+Eclipse. It implements the <strong>Arcadia method</strong>, which structures a system
+description into four layers:</p>
+<table>
+  <tr><th>Layer</th><th>Question it answers</th><th>For this project</th></tr>
+  <tr><td>Operational analysis</td><td>What does the clinician/user need to do, and why?</td>
+      <td>"Interventional radiologist needs to reach a target lesion without damaging
+      major vessels."</td></tr>
+  <tr><td>System analysis</td><td>What must the <em>system</em> (tool) do to support that?</td>
+      <td>Functions: acquire/load image, let user define entry &amp; target, compute
+      trajectory, verify clearance, display result.</td></tr>
+  <tr><td>Logical architecture</td><td>How is that broken into logical components?</td>
+      <td>Image Loader, Trajectory Planner, Clearance Checker, Viewer.</td></tr>
+  <tr><td>Physical architecture</td><td>What are the concrete components/interfaces?</td>
+      <td>Slicer scripted module, vtkMRML scene, segmentation node, markups node.</td></tr>
+</table>
+<p>
+Capella has a built-in "Arcadia method" guide and an in-tool tutorial project, so you
+learn the notation by following along inside the tool itself.
+</p>
+
+<p><span class="badge">RE</span> <strong>IREB CPRE</strong> (International Requirements
+Engineering Board, Certified Professional for Requirements Engineering) publishes a free
+Foundation Level syllabus describing how to write good requirements: unambiguous,
+verifiable, each with a stable ID, classified (functional / non-functional /
+constraint), and traceable to its source. You'll apply this &mdash; not take the exam
+&mdash; by writing ~15&ndash;25 requirements for the needle-planning tool and a
+<strong>traceability matrix</strong> linking each requirement to the Capella function(s)
+that realize it and the test/check that verifies it.
+</p>
+
+<p><span class="badge">Risk</span> <strong>ISO 14971</strong> is the medical-device risk
+management standard. Its core artifact is a hazard analysis table:</p>
+<table>
+  <tr><th>Hazard</th><th>Cause</th><th>Effect</th><th>Severity / Probability</th><th>Mitigation</th><th>Linked requirement</th></tr>
+  <tr><td>Vessel puncture</td><td>Planned trajectory crosses vessel mask</td>
+      <td>Internal bleeding</td><td>High / Medium</td>
+      <td>System flags any trajectory intersecting the vessel segmentation before
+      confirmation</td><td>REQ-0xx</td></tr>
+</table>
+<p>
+You'll build a small table like this for the 2-3 main hazards of the planning workflow,
+each row tracing back to a requirement (and, indirectly, to the Capella function it
+constrains). This is a simplified version of what a real medical-device risk file looks
+like.
+</p>
+
+<h2>3. Tools to install</h2>
+
+<table>
+  <tr><th>Tool</th><th>What it's for</th><th>Install now?</th><th>Notes</th></tr>
+  <tr>
+    <td><strong>3D Slicer</strong></td>
+    <td>Main workspace: load CT data, run/develop the Python scripted module, visualize
+    volumes &amp; trajectories.</td>
+    <td>Yes</td>
+    <td>Download the stable release from
+    <a href="https://download.slicer.org/" target="_blank">download.slicer.org</a>.
+    No separate Python install needed for module development &mdash; Slicer bundles its
+    own Python 3.9 with VTK/ITK/numpy pre-wired.</td>
+  </tr>
+  <tr>
+    <td><strong>Capella</strong></td>
+    <td>Build the Arcadia/MBSE model of the workflow.</td>
+    <td>Yes (or once you reach the SE phase)</td>
+    <td>Free download from
+    <a href="https://www.eclipse.org/capella/download.html" target="_blank">eclipse.org/capella</a>.
+    Choose the "Product" download &mdash; it bundles its own Java runtime, no separate
+    Java install needed. Open the in-app "Welcome" tutorial first.</td>
+  </tr>
+  <tr>
+    <td><strong>Git</strong></td>
+    <td>Version control + public hosting on GitHub.</td>
+    <td>Already installed ✓ (2.54.0)</td>
+    <td>&mdash;</td>
+  </tr>
+  <tr>
+    <td><strong>Standalone Python + MONAI/PyTorch</strong></td>
+    <td>Only needed for the optional U-Net segmentation stretch goal &mdash; trained
+    outside Slicer, results loaded back in.</td>
+    <td>Later</td>
+    <td>Install from <a href="https://www.python.org/downloads/" target="_blank">python.org</a>
+    directly (not the Microsoft Store alias) when you reach that phase, or use a
+    separate conda environment.</td>
+  </tr>
+</table>
+
+<h2>4. Roadmap</h2>
+
+<div class="roadmap-week">
+<h3>Week 1 &mdash; Stand up the tooling</h3>
+<ul>
+  <li>Install 3D Slicer, run through the official tutorial path.</li>
+  <li>Download one Medical Segmentation Decathlon task (Liver or Hepatic Vessel) for
+  later use.</li>
+  <li>Install Capella, run the in-tool Arcadia tutorial.</li>
+  <li>Push this repo skeleton to GitHub.</li>
+</ul>
+</div>
+
+<div class="roadmap-week">
+<h3>Weeks 2&ndash;3 &mdash; Slicer module</h3>
+<ul>
+  <li>Build a Python scripted module: load a volume, place two fiducials (entry &amp;
+  target), draw the trajectory line.</li>
+  <li>Load/segment a vessel structure and check the trajectory against it
+  (intersection test).</li>
+  <li>Display a clear pass/fail result in the module UI.</li>
+</ul>
+</div>
+
+<div class="roadmap-week">
+<h3>Weeks 3&ndash;4 &mdash; Capella model</h3>
+<ul>
+  <li>Operational analysis: clinician needs to reach a target safely.</li>
+  <li>System analysis: acquire image, plan path, verify clearance, display result.</li>
+  <li>Logical architecture: components for each function.</li>
+  <li>Physical architecture: map components to the actual Slicer module/Python
+  classes.</li>
+</ul>
+</div>
+
+<div class="roadmap-week">
+<h3>Week 4 &mdash; Requirements spec + ISO 14971 hazard analysis</h3>
+<ul>
+  <li>Write 15&ndash;25 IDed, classified requirements.</li>
+  <li>Build a traceability matrix: requirement → Capella function → verification
+  method.</li>
+  <li>Build a hazard table for the 2&ndash;3 main risks, each linked to a requirement.</li>
+</ul>
+</div>
+
+<div class="roadmap-week">
+<h3>Ongoing &mdash; VTK/ITK depth + Preim's book</h3>
+<ul>
+  <li>Reproduce one technique from <em>Visual Computing for Medicine</em> (e.g. marching
+  cubes surface extraction, or a custom transfer function for volume rendering) inside
+  or alongside the Slicer module.</li>
+</ul>
+</div>
+
+<div class="roadmap-week">
+<h3>Stretch &mdash; ML bridge</h3>
+<ul>
+  <li>Train a small MONAI U-Net on a Decathlon task.</li>
+  <li>Load the predicted segmentation into the Slicer module as the "no-go zone" for
+  trajectory checking.</li>
+</ul>
+</div>
+
+<h2>5. Repository structure</h2>
+<pre>.
+├── docs/               This plan + future write-ups
+├── slicer-module/      Python scripted module for 3D Slicer
+├── se-model/           Capella project (Arcadia model)
+├── requirements/       Requirements specification + traceability matrix
+├── risk-analysis/       ISO 14971 hazard analysis
+└── ml/                  Optional MONAI segmentation experiments
+</pre>
+
+</body>
+</html>
