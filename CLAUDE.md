@@ -7,7 +7,8 @@ Guidance for Claude Code when working in this repository.
 This repo is a self-study portfolio project combining medical visualization software
 with systems-engineering artifacts for the same workflow (image-guided needle insertion
 planning). See [`README.md`](README.md) and [`docs/plan.html`](docs/plan.html) for the
-full plan and roadmap.
+full plan and roadmap, and [`docs/guide/00-overview.md`](docs/guide/00-overview.md) for
+the module-by-module learning curriculum.
 
 Planned structure:
 

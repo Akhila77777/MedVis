@@ -6,7 +6,8 @@ ablation), paired with a full set of systems-engineering artifacts that describe
 de-risk the same clinical workflow.
 
 See [`docs/plan.html`](docs/plan.html) for the full explanation of the goal, the
-method stack, tool installation, and the week-by-week roadmap.
+method stack, tool installation, and the week-by-week roadmap. New to these concepts?
+Start with the module-by-module [learning guide](docs/guide/00-overview.md).
 
 ## What this project demonstrates
 
