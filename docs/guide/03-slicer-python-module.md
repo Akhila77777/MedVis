@@ -1,13 +1,19 @@
 # Module 3: Building a Slicer Python Module
 
-> **Status: outline.** This module covers tasks #4 and #5 of the roadmap. Full concept
-> explanations will be added when we start this module — what's below is the structure
-> and the terms you'll need.
+> **Status: ready.** This module covers tasks #4 and #5 of the roadmap. The full
+> step-by-step build walkthrough — with reasoning, instructions, and the underlying
+> concept for each step — lives in [`../steps.html`](../steps.html). This page stays as
+> the conceptual summary/glossary; work through `steps.html` hands-on.
 
 ## What is this?
 
-*(To be filled in: scripted modules vs. built-in modules, the Extension Wizard, the
-anatomy of a scripted module file.)*
+A **scripted module** is a Slicer module written in Python that plugs into the same
+"Modules" menu as Slicer's built-in modules (Volume Rendering, Segment Editor, etc.).
+Slicer's **Extension Wizard** scaffolds the boilerplate (file layout + required class
+names) so your module is discovered and loaded automatically. The generated file
+contains a Widget class (UI) and a Logic class (computation), kept separate so the
+underlying logic can be tested and reused independently of the UI — see `steps.html`
+Step 1 for the full breakdown.
 
 ## Why it matters here
 
@@ -27,7 +33,10 @@ and checks whether that line crosses a segmented vessel ("no-go zone").
 - **`vtkOBBTree` / `vtkModifiedBSPTree`** — VTK classes commonly used for
   intersection tests against a surface mesh
 
-## Step-by-step (high level — to be expanded)
+## Step-by-step
+
+The detailed walkthrough (What / Why / How / Underlying concept for each step) is in
+[`../steps.html`](../steps.html):
 
 1. Scaffold a new scripted module with the Extension Wizard.
 2. Add UI elements: volume/segmentation selectors, "place entry point" / "place target
@@ -40,7 +49,10 @@ and checks whether that line crosses a segmented vessel ("no-go zone").
 
 ## Checkpoint
 
-*(To be filled in.)*
+See the checkpoint box at the end of Step 5 in [`../steps.html`](../steps.html): the
+module appears in the Modules dropdown, you can place both points, the trajectory line
+draws in the 3D view, and the result label correctly reports "Clear" vs. "Crosses
+vessel" for at least one test case of each.
 
 ## Further resources
 

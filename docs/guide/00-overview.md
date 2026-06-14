@@ -27,7 +27,7 @@ module. That mapping *is* the portfolio piece.
 |---|--------|--------|--------|
 | 1 | [Version control basics](01-version-control.md) | Git/GitHub setup | ✅ Done |
 | 2 | [3D Slicer basics](02-slicer-basics.md) | Installing Slicer, medical image formats, the Slicer data model, getting a dataset | Ready |
-| 3 | [Building a Slicer Python module](03-slicer-python-module.md) | Scripted modules, fiducials, trajectory line, vessel clearance check | Outline |
+| 3 | [Building a Slicer Python module](03-slicer-python-module.md) | Scripted modules, fiducials, trajectory line, vessel clearance check | Ready |
 | 4 | [MBSE with Capella/Arcadia](04-arcadia-capella.md) | Model-based systems engineering, the Arcadia method, building the model | Outline |
 | 5 | [Requirements engineering (IREB)](05-requirements-ireb.md) | Writing requirements, traceability matrix | Outline |
 | 6 | [Risk management (ISO 14971)](06-risk-iso14971.md) | Hazard analysis | Outline |

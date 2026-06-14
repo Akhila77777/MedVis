@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build Steps — Needle-Planning Slicer Module</title>
+<style>
+  :root {
+    --accent: #2563eb;
+    --bg: #fafafa;
+    --text: #1f2330;
+    --muted: #5b6472;
+    --border: #e3e6ea;
+    --good: #15803d;
+    --bad: #b91c1c;
+  }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--bg);
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+  h1, h2, h3, h4 { line-height: 1.25; }
+  h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+  h2 {
+    margin-top: 3rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { margin-top: 1.4rem; }
+  .subtitle { color: var(--muted); margin-top: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eef2ff; }
+  code {
+    background: #f1f3f6;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  pre {
+    background: #1f2330;
+    color: #f5f7fa;
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+  }
+  pre code { background: none; padding: 0; }
+  .callout {
+    background: #eef6ff;
+    border-left: 4px solid var(--accent);
+    padding: 0.8rem 1rem;
+    border-radius: 0 6px 6px 0;
+    margin: 1rem 0;
+  }
+  .step {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.2rem 1.4rem 1.2rem;
+    margin: 1.2rem 0 2rem;
+    background: #fff;
+  }
+  .step h3 {
+    color: var(--accent);
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.3rem;
+  }
+  .step-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 -1.4rem 1rem;
+    padding: 0.8rem 1.4rem;
+    background: #eef2ff;
+    border-radius: 10px 10px 0 0;
+  }
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem; height: 2rem;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step-title h2 { margin: 0; padding: 0; border: none; font-size: 1.25rem; }
+  .interview {
+    background: #fefce8;
+    border-left: 4px solid #ca8a04;
+    padding: 0.7rem 1rem;
+    border-radius: 0 6px 6px 0;
+    margin: 0.8rem 0 0;
+    font-size: 0.95rem;
+  }
+  .interview strong { color: #92400e; }
+  .checkpoint {
+    background: #f0fdf4;
+    border-left: 4px solid var(--good);
+    padding: 0.7rem 1rem;
+    border-radius: 0 6px 6px 0;
+    margin: 0.8rem 0 0;
+  }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>Build Steps: The Needle-Planning Slicer Module</h1>
+<p class="subtitle">A hands-on build log for Module 3 of the
+<a href="guide/00-overview.md">learning guide</a> — roadmap tasks
+#4 (fiducials + trajectory) and #5 (vessel clearance check).</p>
+
+<div class="callout">
+<strong>How to use this page:</strong> work through the steps in order. Each one has
+four parts — <strong>What</strong> (the concrete action), <strong>Why</strong> (the
+reasoning, so you're not just following clicks), <strong>How</strong> (menu paths /
+code), and <strong>Underlying concept</strong> (the theory — this is what you'd explain
+in an interview). Yellow boxes call out specific "they might ask you this" angles.
+This file will grow with new sections as later tasks (Capella model, requirements,
+risk analysis, MONAI) get their own build steps.
+</div>
+
+<h2>Before you start</h2>
+<p>You'll need, inside 3D Slicer:</p>
+<ul>
+  <li>A volume loaded (the <code>MRHead</code> sample or the CT Thorax/Abdomen you
+  already loaded both work for Steps 1&ndash;3).</li>
+  <li>For Step 4 (vessel clearance), <strong>any</strong> segmentation will do for now —
+  it doesn't need to be an anatomically correct vessel yet. Use the <strong>Segment
+  Editor</strong> module, create a new segment, and use the "Threshold" effect to
+  segment something solid (e.g. bone in the CT, or the skull in MRHead). The goal is to
+  have <em>some</em> closed 3D structure to test the intersection logic against. You'll
+  swap in a real liver/vessel segmentation once the Decathlon dataset (Task #2) is
+  downloaded.</li>
+</ul>
+<div class="callout">
+This module covers <strong>two</strong> roadmap <a href="plan.html#roadmap">tasks</a> —
+#4 and #5. By the end of Step 5 you should be able to mark both as done.
+</div>
+
+<!-- ================= STEP 1 ================= -->
+<div class="step">
+<div class="step-title"><span class="step-num">1</span><h2>Scaffold the module with the Extension Wizard</h2></div>
+
+<h3>What</h3>
+<p>
+Use Slicer's built-in <strong>Extension Wizard</strong> to generate a new scripted
+module skeleton — let's call it <code>NeedlePathPlanner</code>.
+</p>
+
+<h3>Why</h3>
+<p>
+A scripted module isn't just "a Python file" — Slicer needs a specific file/folder
+layout and a specific set of classes with names derived from the module name in order
+to discover and load it into the <strong>Modules</strong> dropdown. The Extension
+Wizard generates exactly that boilerplate correctly, registers the module's path with
+Slicer, and gives you a working "Hello World" module you can immediately see and run —
+so from minute one you're editing a real, loadable module instead of debugging
+plumbing.
+</p>
+
+<h3>How</h3>
+<ol>
+  <li>In the <strong>Modules</strong> dropdown, search for <strong>"Extension
+  Wizard"</strong> (under Developer Tools) and switch to it.</li>
+  <li>Click <strong>"Create Extension"</strong>. Choose a parent folder — put it inside
+  this repo, e.g. <code>D:\MedVis\slicer-module</code>. Give the extension a name, e.g.
+  <code>MedVisExtension</code>.</li>
+  <li>It will then prompt you to create a module inside that extension. Name it
+  <code>NeedlePathPlanner</code> (CamelCase — this becomes the Python class name) and
+  keep the default "Scripted Loadable Module" template.</li>
+  <li>The Wizard creates
+  <code>MedVisExtension/NeedlePathPlanner/NeedlePathPlanner.py</code> (plus a
+  <code>Resources/UI/NeedlePathPlanner.ui</code> file and an icon) and automatically adds
+  this path to Slicer's module search paths.</li>
+  <li>Search the Modules dropdown for <strong>"NeedlePathPlanner"</strong> — you should
+  see a basic UI with an input/output volume selector and an "Apply" button. That's the
+  generated template running.</li>
+</ol>
+
+<h3>Underlying concept</h3>
+<p>
+A Slicer <strong>Extension</strong> is a distributable package (think: a plugin) that
+can bundle one or more <strong>Modules</strong>. A <em>scripted</em> module is a Python
+class inheriting from <code>ScriptedLoadableModule</code>. The generated file actually
+contains <strong>three or four classes</strong>:
+</p>
+<table>
+  <tr><th>Class</th><th>Role</th></tr>
+  <tr><td><code>NeedlePathPlanner</code></td>
+      <td>Metadata only — title, category, help text, dependencies. Slicer reads this to
+      populate the Modules menu.</td></tr>
+  <tr><td><code>NeedlePathPlannerWidget</code></td>
+      <td>The UI layer — builds/loads the panel, wires up button clicks, reads/writes
+      widget values.</td></tr>
+  <tr><td><code>NeedlePathPlannerLogic</code></td>
+      <td>The actual computation — completely independent of the UI, so it can be called
+      from the Python console, other modules, or tests.</td></tr>
+  <tr><td><code>NeedlePathPlannerTest</code></td>
+      <td>A self-test Slicer can run automatically (<code>Reload &amp; Test</code>
+      button).</td></tr>
+</table>
+
+<div class="interview">
+<strong>Interview angle:</strong> the Widget/Logic split is a deliberate
+separation-of-concerns pattern (similar to MVC/MVP). Be ready to explain <em>why</em>:
+logic that lives only inside a button's click-handler can't be unit tested, reused from
+the Python console, or called by another module. Keeping it in a plain Python class with
+no Qt dependencies makes it independently testable.
+</div>
+</div>
+
+<!-- ================= STEP 2 ================= -->
+<div class="step">
+<div class="step-title"><span class="step-num">2</span><h2>Build the UI: node selectors and action buttons</h2></div>
+
+<h3>What</h3>
+<p>Edit <code>Resources/UI/NeedlePathPlanner.ui</code> to add:</p>
+<ul>
+  <li>A <strong>volume selector</strong> (the CT/MR you're planning on)</li>
+  <li>A <strong>segmentation selector</strong> (the vessel/organ "no-go" structure)</li>
+  <li>Two buttons: <strong>"Place Entry Point"</strong> and <strong>"Place Target
+  Point"</strong></li>
+  <li>A <strong>"Plan Trajectory"</strong> button</li>
+  <li>A read-only <strong>result label</strong></li>
+</ul>
+
+<h3>Why</h3>
+<p>
+The module needs to know <em>which</em> volume and <em>which</em> segmentation in the
+scene to operate on — the user might have several loaded. It also needs a way for the
+user to trigger two distinct interactions (placing two different points) and to see the
+outcome. Doing this with Slicer's own widget classes means the UI automatically stays in
+sync with the scene (e.g. if the user loads a new segmentation, it appears in the
+dropdown immediately) without you writing any refresh code.
+</p>
+
+<h3>How</h3>
+<ol>
+  <li>From the Extension Wizard, use <strong>"Edit module UI"</strong> (or open the
+  <code>.ui</code> file directly) — this launches <strong>Qt Designer</strong> with
+  Slicer's custom widgets available in the palette.</li>
+  <li>Drag a <strong>qMRMLNodeComboBox</strong> onto the form for the volume selector.
+  In its properties, set <code>nodeTypes</code> to <code>vtkMRMLScalarVolumeNode</code>.</li>
+  <li>Add a second <strong>qMRMLNodeComboBox</strong> for the segmentation, with
+  <code>nodeTypes</code> = <code>vtkMRMLSegmentationNode</code>.</li>
+  <li>Add three <strong>QPushButton</strong>s ("Place Entry Point", "Place Target Point",
+  "Plan Trajectory") and one <strong>QLabel</strong> for the result. Give each a clear
+  <code>objectName</code> (e.g. <code>placeEntryButton</code>) — this is the name you'll
+  use in Python as <code>self.ui.placeEntryButton</code>.</li>
+  <li>Save. Back in Slicer, click <strong>"Reload"</strong> on the module — your new
+  widgets appear immediately (no restart needed).</li>
+</ol>
+
+<h3>Underlying concept</h3>
+<p>
+This is your first real contact with <strong>MRML</strong> (Medical Reality Modeling
+Language) — Slicer's in-memory data model. Everything loaded into Slicer (volumes,
+segmentations, fiducials, models, transforms) is a <strong>node</strong> in the
+<code>vtkMRMLScene</code> (accessible in Python as <code>slicer.mrmlScene</code>).
+<code>qMRMLNodeComboBox</code> is a Qt widget that watches the scene and auto-populates
+with nodes matching a given class filter — a concrete example of the
+<strong>observer pattern</strong> VTK/MRML is built on: widgets and logic
+<em>subscribe</em> to scene-modified events rather than polling.
+</p>
+
+<div class="interview">
+<strong>Interview angle:</strong> "How does Slicer represent loaded data, and how does
+the UI stay in sync with it?" → MRML scene + node hierarchy + observer/callback events.
+This is the same pattern (subscribe to change events rather than poll) you'll see in any
+GUI framework, and it's also how the 3D/slice <strong>views</strong> stay in sync with
+each other.
+</div>
+</div>
+
+<!-- ================= STEP 3 ================= -->
+<div class="step">
+<div class="step-title"><span class="step-num">3</span><h2>Place entry/target fiducials and build the trajectory line</h2></div>
+
+<h3>What</h3>
+<p>
+Wire the two "Place..." buttons to Slicer's interactive point-placement mode, storing
+each point in a <code>vtkMRMLMarkupsFiducialNode</code>. Wire "Plan Trajectory" to read
+both point positions and create a line between them.
+</p>
+
+<h3>Why</h3>
+<p>
+This <em>is</em> the planning interaction: "entry point" = where the needle enters the
+skin, "target point" = the lesion/structure to reach. The line between them <em>is</em>
+the planned trajectory — both the thing the user visualizes and the geometric object
+the clearance check (Step 4) will test.
+</p>
+
+<h3>How</h3>
+<p>In <code>NeedlePathPlannerLogic</code> (or the Widget, for the placement calls):</p>
+<pre><code># Create (or get) a fiducial node to hold our two points
+fiducialNode = slicer.mrmlScene.GetFirstNodeByName("EntryTarget")
+if not fiducialNode:
+    fiducialNode = slicer.mrmlScene.AddNewNodeByClass(
+        "vtkMRMLMarkupsFiducialNode", "EntryTarget")
+
+# Activate interactive placement (called from the "Place Entry Point" button)
+selectionNode = slicer.app.applicationLogic().GetSelectionNode()
+selectionNode.SetActivePlaceNodeID(fiducialNode.GetID())
+interactionNode = slicer.app.applicationLogic().GetInteractionNode()
+interactionNode.SetCurrentInteractionMode(interactionNode.Place)
+
+# Later, reading the two points back (RAS coordinates, in mm)
+entryRAS = [0, 0, 0]
+targetRAS = [0, 0, 0]
+fiducialNode.GetNthControlPointPositionWorld(0, entryRAS)
+fiducialNode.GetNthControlPointPositionWorld(1, targetRAS)
+
+# Build the trajectory as a line model so we can run geometry on it later
+lineSource = vtk.vtkLineSource()
+lineSource.SetPoint1(entryRAS)
+lineSource.SetPoint2(targetRAS)
+lineSource.Update()
+
+trajectoryModel = slicer.mrmlScene.GetFirstNodeByName("TrajectoryLine")
+if not trajectoryModel:
+    trajectoryModel = slicer.mrmlScene.AddNewNodeByClass(
+        "vtkMRMLModelNode", "TrajectoryLine")
+    trajectoryModel.CreateDefaultDisplayNodes()
+trajectoryModel.SetAndObservePolyData(lineSource.GetOutput())
+</code></pre>
+<p>
+Exact method names occasionally shift between Slicer versions — when you implement
+this, test each call in the <strong>Python Console</strong> first (instant feedback,
+autocomplete with Tab), then move working code into the module.
+</p>
+
+<h3>Underlying concept</h3>
+<p>
+Two concepts to nail down here:
+</p>
+<ul>
+  <li><strong>RAS coordinates.</strong> Slicer's internal coordinate system is
+  <strong>R</strong>ight, <strong>A</strong>nterior, <strong>S</strong>uperior — i.e.
+  +X points to the patient's right, +Y to anterior, +Z to superior, in millimeters. DICOM
+  and ITK use <strong>LPS</strong> (Left, Posterior, Superior) — same axes, two of them
+  flipped in sign. Whenever you exchange coordinates between Slicer and ITK/numpy code
+  (e.g. for the MONAI stretch goal), you need to convert between RAS and LPS or you'll
+  get mirrored results.</li>
+  <li><strong>Markups vs. Models.</strong> <code>vtkMRMLMarkupsFiducialNode</code> /
+  <code>...LineNode</code> are <em>annotation</em> nodes — lightweight, interactive,
+  great for points the user places/drags. A <code>vtkMRMLModelNode</code> wraps actual
+  <code>vtkPolyData</code> geometry — what you need once you want to run geometric
+  algorithms (like an intersection test) rather than just display something.</li>
+</ul>
+
+<div class="interview">
+<strong>Interview angle:</strong> "Why do medical imaging tools care about coordinate
+systems like RAS vs LPS?" — because a sign error on one axis silently mirrors left/right
+or flips superior/inferior, which in a clinical planning tool is exactly the kind of bug
+that becomes a <em>hazard</em> (see Module 6, ISO 14971) rather than just a visual glitch.
+</div>
+</div>
+
+<!-- ================= STEP 4 ================= -->
+<div class="step">
+<div class="step-title"><span class="step-num">4</span><h2>Convert the segmentation to a surface and test for intersection</h2></div>
+
+<h3>What</h3>
+<p>
+Convert the selected vessel/organ <code>vtkMRMLSegmentationNode</code> to a closed
+surface mesh, then test whether the trajectory line intersects that mesh using
+<code>vtkOBBTree</code>.
+</p>
+
+<h3>Why</h3>
+<p>
+This is the safety-critical step — the system function "Verify clearance" from the
+Arcadia model (Module 4) and the mitigation for the "vessel puncture" hazard
+(Module 6) both come down to this one geometric test: <em>does the planned line touch
+the forbidden region?</em>
+</p>
+
+<h3>How</h3>
+<pre><code># 1. Make sure the segmentation has a closed-surface representation
+segmentationNode.CreateClosedSurfaceRepresentation()
+
+# 2. Get that surface as vtkPolyData for the first/only segment
+segmentIds = vtk.vtkStringArray()
+segmentationNode.GetSegmentation().GetSegmentIDs(segmentIds)
+segmentId = segmentIds.GetValue(0)
+
+polyData = vtk.vtkPolyData()
+segmentationNode.GetClosedSurfaceRepresentation(segmentId, polyData)
+
+# 3. Build a spatial search structure over the surface
+obbTree = vtk.vtkOBBTree()
+obbTree.SetDataSet(polyData)
+obbTree.BuildLocator()
+
+# 4. Test the entry->target line against it
+intersectionPoints = vtk.vtkPoints()
+hit = obbTree.IntersectWithLine(entryRAS, targetRAS, intersectionPoints, None)
+
+crossesVessel = bool(hit) and intersectionPoints.GetNumberOfPoints() > 0
+</code></pre>
+
+<h3>Underlying concept</h3>
+<p>
+Segmentations are stored internally as <strong>label maps</strong> — a 3D grid of voxels
+where each voxel is tagged with a segment ID. Most geometric algorithms (intersection,
+distance, volume) don't operate on voxel grids directly — they need a
+<strong>surface mesh</strong> (triangles). Converting label map → closed surface uses a
+<strong>marching cubes</strong>-family algorithm — the exact technique Module 7
+(VTK/ITK deep dive, Preim's book) has you reproduce by hand, so this step is a preview of
+that.
+</p>
+<p>
+<code>vtkOBBTree</code> is a <strong>bounding volume hierarchy</strong>: it recursively
+wraps groups of triangles in oriented bounding boxes, so a line-intersection test can
+discard most of the mesh in O(log n) box checks instead of testing every triangle
+individually — the same family of acceleration structure used in ray tracing and
+collision detection.
+</p>
+
+<div class="interview">
+<strong>Interview angle:</strong> "How would you efficiently test whether a line
+intersects a complex 3D mesh with thousands of triangles?" — don't brute-force every
+triangle; use a spatial acceleration structure (BVH / OBB tree / octree) to prune most of
+the mesh first. Naming <code>vtkOBBTree</code> and explaining <em>why</em> it's faster
+than the naive approach is a strong signal.
+</div>
+</div>
+
+<!-- ================= STEP 5 ================= -->
+<div class="step">
+<div class="step-title"><span class="step-num">5</span><h2>Show the result — and connect it back to the SE artifacts</h2></div>
+
+<h3>What</h3>
+<p>
+Update the result label based on <code>crossesVessel</code>: green "Clear" if
+<code>False</code>, red "Crosses vessel — re-plan" if <code>True</code>. Re-run this
+every time "Plan Trajectory" is clicked.
+</p>
+
+<h3>Why</h3>
+<p>
+A correct-but-invisible check is useless to a clinician. This step turns the geometric
+result from Step 4 into the thing the user actually needs: a clear go/no-go signal,
+displayed where they're already looking.
+</p>
+
+<h3>How</h3>
+<pre><code>if crossesVessel:
+    self.ui.resultLabel.setText("⚠ Crosses vessel — re-plan")
+    self.ui.resultLabel.setStyleSheet("color: #b91c1c; font-weight: bold;")
+else:
+    self.ui.resultLabel.setText("✓ Clear")
+    self.ui.resultLabel.setStyleSheet("color: #15803d; font-weight: bold;")
+</code></pre>
+
+<h3>Underlying concept</h3>
+<p>
+This is the point where the "build it" half and the "describe and de-risk it" half of
+the project become <strong>the same artifact viewed two ways</strong>:
+</p>
+<ul>
+  <li>In <strong>Capella</strong> (Module 4), this is the system function
+  <em>"Verify clearance"</em> in the System Analysis layer, realized by the
+  <em>"Clearance Checker"</em> logical component.</li>
+  <li>In the <strong>requirements spec</strong> (Module 5), this is a requirement like
+  <em>"REQ-0xx: The system shall indicate whether the planned trajectory intersects the
+  selected no-go segmentation before the user proceeds."</em></li>
+  <li>In the <strong>hazard analysis</strong> (Module 6), this is the mitigation for the
+  "vessel puncture" hazard — and the <code>crossesVessel</code> boolean is literally the
+  thing being verified.</li>
+</ul>
+
+<div class="checkpoint">
+<strong>Checkpoint — you're done with Module 3 when:</strong> the module appears in the
+Modules dropdown; you can load a volume + a segmentation, click "Place Entry Point" and
+"Place Target Point" and click in a slice view to set each; click "Plan Trajectory" and
+see the line appear in the 3D view; and the result label correctly says "Clear" for a
+line that misses your test segmentation and "Crosses vessel" for one that hits it.
+That satisfies roadmap <strong>Task #4</strong> and <strong>Task #5</strong>.
+</div>
+
+<div class="interview">
+<strong>Interview angle:</strong> if asked "tell me about a project where you connected
+software design to requirements/risk" — this is it. The traceability isn't a paperwork
+exercise bolted on afterwards; each SE artifact names a real function/component/check
+that exists in the code you just wrote.
+</div>
+</div>
+
+<h2>What's next</h2>
+<p>
+Once Module 3 is working, the natural next steps are <strong>Module 4 (Capella/Arcadia
+model)</strong> — which you can now build by describing what you just implemented — and
+swapping the placeholder segmentation for the real Decathlon liver/vessel data
+(Task #2). New "Step" sections for those will be added to this page as we work through
+them.
+</p>
+
+</body>
+</html>
