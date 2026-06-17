@@ -23,6 +23,28 @@ Slicer is your entire workspace for the technical half of this project: loading 
 scans, viewing them, segmenting structures, and running your custom module. Getting
 comfortable with its UI and data model now makes Module 3 much easier.
 
+## Module types: how custom code plugs into Slicer
+
+When you use the **Extension Wizard** to create a new module (Module 3), it asks you to
+pick a **type**. These are the six options and what they mean:
+
+| Type | What it is | When you'd use it |
+|---|---|---|
+| **cli** | A standalone command-line executable (usually C++) that Slicer runs as a *separate process*, with a GUI auto-generated from an XML description of its parameters. | Long-running batch computations (registration, filtering) that shouldn't block Slicer's UI, or that need to run outside Slicer too. |
+| **loadable** | A C++ module compiled into a shared library and loaded directly into Slicer's process, with full low-level access to MRML/VTK/Qt. | Performance-critical modules, or when you need C++-only libraries. Requires a full Slicer SDK build (CMake, compiler) — heavy to set up. |
+| **loadablecustommarkups** | A specialized loadable-module template for adding a brand-new *type* of Markups annotation (e.g. a custom ROI shape). | Niche — extending the Markups toolset with a new annotation type. |
+| **scripted** | A Python file, loaded directly by Slicer's built-in Python interpreter at runtime. Same access to the MRML scene/VTK/Qt as C++ modules (via PythonQt), but no compilation step. | General-purpose custom modules and prototyping — **this is what we use for the needle-planning module.** |
+| **scriptedcli** | Like `cli`, but the executable is a Python script instead of C++. | Long-running Python computations run out-of-process (e.g. heavy MONAI inference) with an auto-generated GUI. |
+| **scriptedsegmenteditoreffect** | A Python template for adding a new *tool/brush* to the Segment Editor's effect list. | Custom segmentation tools only. |
+
+**Why Module 3 uses `scripted`:** no C++ toolchain or build step is needed — edit the
+`.py` file and click "Reload" in Slicer to see changes instantly. Python has full access
+to everything the project needs: the MRML scene, Markups/fiducial nodes, VTK geometry
+classes (`vtkOBBTree`, etc.) for the intersection test, and Qt widgets for the UI. The
+computation itself (placing two points, building a line, one intersection test) is fast
+enough to run directly in the UI thread, so the heavier `cli`/`loadable` options would
+be unnecessary overhead.
+
 ## Key terms
 
 - **DICOM:** the standard file format/protocol hospitals use to store and exchange
