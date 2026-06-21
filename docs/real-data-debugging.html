@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Debugging Log — Loading Real Decathlon Data into NeedlePathPlanner</title>
+<style>
+  :root {
+    --accent: #2563eb;
+    --bg: #fafafa;
+    --text: #1f2330;
+    --muted: #5b6472;
+    --border: #e3e6ea;
+    --good: #15803d;
+    --bad: #b91c1c;
+  }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--bg);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+  h1, h2, h3, h4 { line-height: 1.25; }
+  h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+  h2 { margin-top: 3rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--border); }
+  h3 { margin-top: 1.4rem; }
+  .subtitle { color: var(--muted); margin-top: 0; }
+  code {
+    background: #f1f3f6;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  pre {
+    background: #1f2330;
+    color: #f5f7fa;
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+  }
+  pre code { background: none; padding: 0; }
+  .callout {
+    background: #eef6ff;
+    border-left: 4px solid var(--accent);
+    padding: 0.8rem 1rem;
+    border-radius: 0 6px 6px 0;
+    margin: 1rem 0;
+  }
+  .interview {
+    background: #fefce8;
+    border-left: 4px solid #ca8a04;
+    padding: 0.7rem 1rem;
+    border-radius: 0 6px 6px 0;
+    margin: 0.8rem 0 0;
+    font-size: 0.95rem;
+  }
+  .interview strong { color: #92400e; }
+  .checkpoint {
+    background: #f0fdf4;
+    border-left: 4px solid var(--good);
+    padding: 0.7rem 1rem;
+    border-radius: 0 6px 6px 0;
+    margin: 0.8rem 0 0;
+  }
+  .step {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.2rem 1.4rem 1.2rem;
+    margin: 1.2rem 0 2rem;
+    background: #fff;
+  }
+  .step-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 -1.4rem 1rem;
+    padding: 0.8rem 1.4rem;
+    background: #eef2ff;
+    border-radius: 10px 10px 0 0;
+  }
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem; height: 2rem;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step-title h2 { margin: 0; padding: 0; border: none; font-size: 1.25rem; }
+  a { color: var(--accent); }
+
+  /* Interactive widget shared styles */
+  .widget {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #f9fafc;
+    padding: 1rem 1.2rem 1.4rem;
+    margin: 1rem 0;
+  }
+  .widget h4 { margin-top: 0; color: var(--accent); }
+  .widget canvas {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #0b1020;
+    display: block;
+    margin: 0.8rem 0;
+    cursor: crosshair;
+  }
+  .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
+  button.btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  button.btn.secondary { background: #64748b; }
+  button.btn:hover { opacity: 0.9; }
+  select, label.radio { font-size: 0.9rem; }
+  .result-box {
+    font-weight: 700;
+    padding: 0.5rem 0.8rem;
+    border-radius: 6px;
+    display: inline-block;
+    margin-top: 0.5rem;
+  }
+  .result-clear { background: #dcfce7; color: var(--good); }
+  .result-cross { background: #fee2e2; color: var(--bad); }
+  .result-neutral { background: #eef2ff; color: var(--muted); }
+  .quiz-shape {
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .quiz-shape:hover { filter: brightness(1.3); }
+  .quiz-feedback { font-weight: 600; margin-top: 0.5rem; min-height: 1.4em; }
+</style>
+</head>
+<body>
+
+<h1>Debugging Log: Loading Real Decathlon Data into NeedlePathPlanner</h1>
+<p class="subtitle">A record of swapping the placeholder test segmentation for real
+Medical Segmentation Decathlon data (<code>Task08_HepaticVessel</code>) — what went
+wrong, why, and the concepts behind each fix. This is a companion to
+<a href="steps.html">the Module 3 build walkthrough</a> and
+<a href="guide/02-slicer-basics.md">Module 2</a>; it picks up once the module already
+works against the placeholder segmentation.</p>
+
+<div class="callout">
+<strong>Why this page exists:</strong> the build steps in <code>steps.html</code> show
+the <em>happy path</em> of building the module. Real datasets don't follow happy
+paths — they surface assumptions your code quietly made that a single hand-rolled test
+segmentation never challenged. Each section below is one of those assumptions breaking,
+and what it teaches.
+</div>
+
+<!-- ================= STEP A ================= -->
+<div class="step">
+<div class="step-title"><span class="step-num">A</span><h2>Getting the dataset without filling the disk</h2></div>
+
+<h3>What happened</h3>
+<p>
+<code>Task08_HepaticVessel.tar</code> is ~8.8 GB. The machine's <code>C:</code> drive
+had only 5.4 GB free — extracting the whole archive there would have failed partway
+through, or worse, filled the drive to 100%.
+</p>
+
+<h3>The fix</h3>
+<p>
+Two separate ideas solved this:
+</p>
+<ul>
+  <li><strong>Extract to a drive with room</strong> (<code>D:</code>, 329 GB free) instead
+  of the default <code>Downloads</code> location.</li>
+  <li><strong>Don't extract the whole archive.</strong> A Decathlon task has hundreds of
+  cases; testing a pipeline only needs one. <code>tar</code> can extract individual
+  entries by path instead of everything:
+  <pre><code>tar -tvf Task08_HepaticVessel.tar | grep imagesTr   # list contents + sizes first, extract nothing
+tar -xf Task08_HepaticVessel.tar -C D:\MedVisData Task08_HepaticVessel/imagesTr/hepaticvessel_248.nii.gz Task08_HepaticVessel/labelsTr/hepaticvessel_248.nii.gz</code></pre>
+  </li>
+</ul>
+
+<h3>Underlying concept</h3>
+<p>
+A <code>.tar</code> file is just a concatenation of files plus headers — it doesn't
+require reading or writing the whole archive to pull out one entry. This is the same
+reason you can <code>git checkout</code> a single file from a huge repo's history without
+materializing every version that ever existed: archive/container formats that store an
+index let you do partial extraction cheaply.
+</p>
+
+<div class="interview">
+<strong>Interview angle:</strong> "How would you work with a dataset too large to fit on
+disk?" — don't extract/download more than the task needs. Sample a subset, stream what
+you can, and know the actual disk budget before running a bulk operation.
+</div>
+</div>
+
+<!-- ================= STEP B ================= -->
+<div class="step">
+<div class="step-title"><span class="step-num">B</span><h2>NIfTI, gzip, and the Add Data dialog</h2></div>
+
+<h3>What happened</h3>
+<p>
+Windows Explorer displayed the extracted file as <code>hepaticvessel_248.nii</code>,
+which looked like maybe the <code>.gz</code> part had gone missing during extraction.
+Separately, Slicer's <strong>Add Data</strong> dialog only offered <code>Volume</code> /
+<code>Segmentation</code> / <code>Transform</code> as type options — no
+<code>LabelMap</code>, which earlier guidance had assumed would be there.
+</p>
+
+<h3>The fix / explanation</h3>
+<ul>
+  <li><code>.nii.gz</code> is a <strong>NIfTI</strong> file (3D medical image format)
+  compressed with <strong>gzip</strong>. Windows hides the last extension by default
+  ("Hide extensions for known file types") — the file on disk was unaffected, only its
+  on-screen label changed. Slicer decompresses gzip natively on load.</li>
+  <li>Current Slicer versions can read an integer-labeled NIfTI <strong>directly into a
+  <code>vtkMRMLSegmentationNode</code></strong> by choosing <strong>Segmentation</strong>
+  in the Add Data dialog — it auto-creates one segment per distinct label value. This
+  skips the older two-step "load as LabelMap, then import LabelMap → Segmentation"
+  workflow entirely.</li>
+</ul>
+
+<div class="interview">
+<strong>Interview angle:</strong> "Tell me about a time documentation/instructions were
+slightly out of date." — tooling evolves faster than tutorials. The fix wasn't to force
+the old workflow to work; it was to recognize the newer, more direct option achieved the
+same goal with fewer steps.
+</div>
+</div>
+
+<!-- ================= STEP C ================= -->
+<div class="step">
+<div class="step-title"><span class="step-num">C</span><h2>Duplicate nodes after Add Data</h2></div>
+
+<h3>What happened</h3>
+<p>
+After loading 2 files (1 volume, 1 segmentation), the scene ended up with
+<strong>4 nodes</strong>: three volume-looking nodes and one segmentation. The Add Data
+dialog's file list had shown each path with the filename appearing twice
+(<code>.../hepaticvessel_248.nii/hepaticvessel_248.nii</code>) — a real symptom of a
+double-registered file, not just a cosmetic glitch.
+</p>
+
+<h3>The fix</h3>
+<p>
+Rather than guess which node was "the real one," each ambiguous volume was loaded as the
+slice-view background and inspected visually: a real CT shows recognizable grayscale
+anatomy; a mislabeled duplicate of the label file looks mostly black with only 1–2 flat
+values. Once the real CT was identified, the duplicates were deleted.
+</p>
+
+<div class="interview">
+<strong>Interview angle:</strong> "How do you debug a data-loading issue with no error
+message?" — when nothing throws an exception but the data looks wrong, fall back to
+direct inspection of the actual values/voxels rather than trusting names or metadata,
+which can be misleading exactly when something went wrong upstream.
+</div>
+</div>
+
+<!-- ================= STEP D ================= -->
+<div class="step">
+<div class="step-title"><span class="step-num">D</span><h2>Quiz: telling vessel from tumor by shape alone</h2></div>
+
+<h3>What happened</h3>
+<p>
+Task08's segmentation has two segments — Decathlon's labels are just integers
+(<code>1</code>, <code>2</code>); Slicer names them generically <code>Segment_1</code>,
+<code>Segment_2</code>. Nothing in the UI tells you which one is the vessel and which is
+the tumor — but their <strong>shapes</strong> in the 3D view do.
+</p>
+
+<div class="widget">
+<h4>Click the shape that's the vessel</h4>
+<p style="margin-top:-0.5rem; color:var(--muted); font-size:0.9rem;">
+One of these is a real structure shape from the 3D view; the other is what a tumor looks
+like. Click the one you think is the <strong>vessel</strong>.
+</p>
+<svg width="560" height="220" viewBox="0 0 560 220" xmlns="http://www.w3.org/2000/svg">
+  <!-- Branching tree shape (vessel) -->
+  <g id="shape-vessel" class="quiz-shape" data-answer="vessel">
+    <rect x="10" y="10" width="240" height="200" rx="8" fill="#0b1020" />
+    <path d="M130 195 C128 150 132 120 128 95 M128 95 C115 80 95 70 80 60 M128 95 C140 78 155 65 170 50 M170 50 C178 38 190 28 200 18 M170 50 C165 35 168 20 172 8 M80 60 C70 48 58 40 45 30 M80 60 C75 45 78 32 70 20"
+          stroke="#22c55e" stroke-width="5" fill="none" stroke-linecap="round"/>
+  </g>
+  <!-- Blob shape (tumor) -->
+  <g id="shape-tumor" class="quiz-shape" data-answer="tumor">
+    <rect x="310" y="10" width="240" height="200" rx="8" fill="#0b1020" />
+    <path d="M430 50 C460 45 480 70 478 95 C495 105 492 135 470 145 C465 170 430 180 410 165 C385 175 365 150 372 130 C355 115 365 90 388 85 C390 60 410 48 430 50 Z"
+          fill="#d4a657" />
+  </g>
+</svg>
+<div id="quiz-feedback" class="quiz-feedback"></div>
+</div>
+
+<h3>Underlying concept</h3>
+<p>
+Vessels physically <strong>branch</strong> — they're a tree-like network feeding/draining
+tissue, narrowing at each split. Tumors are <strong>solid masses</strong> with no
+branching structure. This shape difference is visible even without any segment naming
+metadata, and it's exactly how the real bug below was first spotted: the two segments in
+the actual 3D view had unmistakably different shapes.
+</p>
+</div>
+
+<!-- ================= STEP E ================= -->
+<div class="step">
+<div class="step-title"><span class="step-num">E</span><h2>The real bug: testing against the wrong segment</h2></div>
+
+<h3>What happened</h3>
+<p>
+<code>checkClearance()</code> picked whichever segment came back first from
+<code>GetSegmentIDs()</code> — <code>segmentIds.GetValue(0)</code> — with no regard for
+which segment that actually was. With one hand-made test segment, "segment 0" was always
+the only segment, so this never mattered. With two real, differently-positioned segments,
+it suddenly did: every trajectory aimed at the tumor came back <strong>"Clear"</strong>,
+even ones that looked obviously close to it, because the code was silently testing
+against the vessel — somewhere else entirely — instead.
+</p>
+
+<div class="widget">
+<h4>Try it yourself: buggy vs. fixed segment selection</h4>
+<p style="margin-top:-0.5rem; color:var(--muted); font-size:0.9rem;">
+The green branching shape is the vessel (<code>Segment_1</code>); the tan blob is the
+tumor (<code>Segment_2</code>). Place an entry and target point, then plan a trajectory
+in either mode and see what gets tested.
+</p>
+<div class="controls">
+  <button class="btn" id="btn-place-entry">Place Entry Point</button>
+  <button class="btn" id="btn-place-target">Place Target Point</button>
+  <label class="radio"><input type="radio" name="mode" value="bug" checked> Buggy: always test segment index 0</label>
+  <label class="radio"><input type="radio" name="mode" value="fixed"> Fixed: test the segment I pick below</label>
+  <select id="segment-pick">
+    <option value="vessel">Segment_1 (vessel)</option>
+    <option value="tumor" selected>Segment_2 (tumor)</option>
+  </select>
+  <button class="btn" id="btn-plan">Plan Trajectory</button>
+  <button class="btn secondary" id="btn-clear">Clear</button>
+</div>
+<canvas id="demo-canvas" width="700" height="380"></canvas>
+<div id="demo-result" class="result-box result-neutral">No trajectory planned yet</div>
+</div>
+
+<h3>The fix</h3>
+<p>
+The segmentation node selector alone isn't enough — a node can contain multiple
+segments with different clinical meanings (one to avoid, one to target). The selection
+of <em>which segment is the no-go structure</em> needs to be an explicit, visible choice
+in the UI, not an arbitrary index baked into the logic.
+</p>
+
+<h3>Underlying concept</h3>
+<p>
+This is the same class of bug as reading <code>list[0]</code> from an API response and
+assuming it's "the main one" — it works by coincidence until the data has more than one
+element in an order you didn't control. The fix is always the same shape: make the
+selection explicit and visible, rather than implicit and positional.
+</p>
+
+<div class="interview">
+<strong>Interview angle:</strong> "Describe a bug that only showed up with real data,
+not your test data." — single hand-crafted test fixtures often have exactly one of
+everything, which silently hides bugs in code that assumes "there's only one." Testing
+against realistic, messier data (multiple segments, multiple structures) is what surfaces
+this class of bug before a clinician does.
+</div>
+
+<div class="checkpoint">
+<strong>Status:</strong> identified, reproduced (interactively, above), and <strong>fixed</strong>
+— see Step F below.
+</div>
+</div>
+
+<!-- ================= STEP F ================= -->
+<div class="step">
+<div class="step-title"><span class="step-num">F</span><h2>The fix: an explicit segment selector</h2></div>
+
+<h3>What changed</h3>
+<p>
+The segmentation <em>node</em> combo box (<code>qMRMLNodeComboBox</code>) was replaced with a
+<strong><code>qMRMLSegmentSelectorWidget</code></strong> — a single Slicer widget that picks
+both the segmentation node <em>and</em> a specific segment inside it. The logic now receives
+that chosen segment ID explicitly:
+</p>
+<pre><code># Widget (onPlanTrajectoryButton):
+segmentationNode = self.ui.segmentationSelector.currentNode()
+segmentId        = self.ui.segmentationSelector.currentSegmentID()
+crossesVessel    = self.logic.checkClearance(segmentationNode, segmentId)
+
+# Logic (checkClearance) — was: chosenId = segmentIds.GetValue(0)
+if not segmentId or not segmentation.GetSegment(segmentId):
+    raise ValueError("No valid segment selected to check the trajectory against")
+segmentationNode.GetClosedSurfaceRepresentation(segmentId, polyData)
+</code></pre>
+
+<h3>Why this shape of fix</h3>
+<p>
+The selection of <em>which segment is the no-go structure</em> is now an explicit, visible
+choice in the UI rather than an arbitrary positional index baked into the logic. With the
+vessel and tumor both present, you now decide which one the trajectory is tested against —
+and the result can no longer be right or wrong by accident of load order.
+</p>
+
+<div class="interview">
+<strong>Interview angle:</strong> "How did you fix it?" — not by reordering the data or
+guessing which index is the vessel, but by removing the positional assumption entirely:
+surface the choice to the user and pass it through. The safety property no longer depends
+on something the code can't control.
+</div>
+
+<div class="checkpoint">
+<strong>To verify in Slicer:</strong> <em>Reload</em> the module (or Restart Slicer if the
+new segment dropdown doesn't appear — the <code>.ui</code> gained a custom widget). Pick the
+segmentation, then explicitly select the <strong>vessel</strong> segment. Aim a trajectory
+through the tumor but clear of the vessel → should now say <strong>Clear</strong> (correct:
+you're checking against the vessel). Switch the selector to the <strong>tumor</strong>
+segment and re-plan the same line → it should flip to <strong>Crosses</strong>. The result
+now tracks the segment <em>you</em> chose.
+</div>
+</div>
+
+<script>
+(function () {
+  // ---- Step D quiz ----
+  document.getElementById('shape-vessel').addEventListener('click', function () {
+    document.getElementById('quiz-feedback').textContent = '✓ Correct — branching shape = vessel.';
+    document.getElementById('quiz-feedback').style.color = '#15803d';
+  });
+  document.getElementById('shape-tumor').addEventListener('click', function () {
+    document.getElementById('quiz-feedback').textContent = '✗ That\'s the tumor (solid blob, no branching) — try the other one.';
+    document.getElementById('quiz-feedback').style.color = '#b91c1c';
+  });
+
+  // ---- Step E interactive demo ----
+  var canvas = document.getElementById('demo-canvas');
+  var ctx = canvas.getContext('2d');
+
+  // Vessel: a few branching polyline segments, near the top of the canvas
+  var vesselBranches = [
+    [[350, 40], [340, 90], [300, 130]],
+    [[340, 90], [385, 120]],
+    [[300, 130], [270, 170]],
+    [[300, 130], [330, 175]],
+    [[385, 120], [410, 160]]
+  ];
+
+  // Tumor: a closed blob polygon, lower-left area
+  var tumorPolygon = [
+    [180, 230], [220, 215], [260, 230], [275, 260],
+    [260, 295], [220, 310], [180, 295], [165, 260]
+  ];
+
+  var entryPoint = null;
+  var targetPoint = null;
+  var placing = null; // 'entry' | 'target' | null
+
+  function drawPolyline(points, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (var i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+    ctx.stroke();
+  }
+
+  function drawPolygon(points, fill) {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (var i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawPoint(p, color, label) {
+    if (!p) return;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(p[0], p[1], 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e5e7eb';
+    ctx.font = '13px sans-serif';
+    ctx.fillText(label, p[0] + 9, p[1] - 9);
+  }
+
+  function render(highlight) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#0b1020';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    var vesselColor = highlight === 'vessel' ? '#86efac' : '#22c55e';
+    var tumorColor = highlight === 'tumor' ? '#f3cb86' : '#d4a657';
+
+    vesselBranches.forEach(function (b) { drawPolyline(b, vesselColor); });
+    drawPolygon(tumorPolygon, tumorColor);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('Segment_1 (vessel)', 420, 45);
+    ctx.fillText('Segment_2 (tumor)', 60, 235);
+
+    drawPoint(entryPoint, '#60a5fa', 'Entry');
+    drawPoint(targetPoint, '#f87171', 'Target');
+
+    if (entryPoint && targetPoint) {
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(entryPoint[0], entryPoint[1]);
+      ctx.lineTo(targetPoint[0], targetPoint[1]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  function segIntersect(p1, p2, p3, p4) {
+    function cross(o, a, b) { return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]); }
+    var d1 = cross(p3, p4, p1), d2 = cross(p3, p4, p2);
+    var d3 = cross(p1, p2, p3), d4 = cross(p1, p2, p4);
+    if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+    return false;
+  }
+
+  function lineHitsPolyline(a, b, branches) {
+    return branches.some(function (branch) {
+      for (var i = 0; i < branch.length - 1; i++) {
+        if (segIntersect(a, b, branch[i], branch[i + 1])) return true;
+      }
+      return false;
+    });
+  }
+
+  function lineHitsPolygon(a, b, poly) {
+    for (var i = 0; i < poly.length; i++) {
+      var p3 = poly[i], p4 = poly[(i + 1) % poly.length];
+      if (segIntersect(a, b, p3, p4)) return true;
+    }
+    return false;
+  }
+
+  canvas.addEventListener('click', function (e) {
+    if (!placing) return;
+    var rect = canvas.getBoundingClientRect();
+    var p = [e.clientX - rect.left, e.clientY - rect.top];
+    if (placing === 'entry') entryPoint = p;
+    else targetPoint = p;
+    placing = null;
+    render();
+  });
+
+  document.getElementById('btn-place-entry').addEventListener('click', function () { placing = 'entry'; });
+  document.getElementById('btn-place-target').addEventListener('click', function () { placing = 'target'; });
+
+  document.getElementById('btn-clear').addEventListener('click', function () {
+    entryPoint = null; targetPoint = null; placing = null;
+    document.getElementById('demo-result').className = 'result-box result-neutral';
+    document.getElementById('demo-result').textContent = 'No trajectory planned yet';
+    render();
+  });
+
+  document.getElementById('btn-plan').addEventListener('click', function () {
+    var resultBox = document.getElementById('demo-result');
+    if (!entryPoint || !targetPoint) {
+      resultBox.className = 'result-box result-neutral';
+      resultBox.textContent = 'Place both an entry and a target point first.';
+      return;
+    }
+    var mode = document.querySelector('input[name="mode"]:checked').value;
+    var picked = document.getElementById('segment-pick').value;
+    var testedSegment = (mode === 'bug') ? 'vessel' : picked; // index 0 in this demo == vessel
+
+    var crosses = testedSegment === 'vessel'
+      ? lineHitsPolyline(entryPoint, targetPoint, vesselBranches)
+      : lineHitsPolygon(entryPoint, targetPoint, tumorPolygon);
+
+    var label = testedSegment === 'vessel' ? 'Segment_1 (vessel)' : 'Segment_2 (tumor)';
+    render(testedSegment);
+
+    if (crosses) {
+      resultBox.className = 'result-box result-cross';
+      resultBox.textContent = 'Tested against ' + label + ' → CROSSES';
+    } else {
+      resultBox.className = 'result-box result-clear';
+      resultBox.textContent = 'Tested against ' + label + ' → CLEAR (but was that the segment you meant to test?)';
+    }
+  });
+
+  render();
+})();
+</script>
+
+</body>
+</html>

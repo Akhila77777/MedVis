@@ -65,26 +65,12 @@
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="qMRMLNodeComboBox" name="segmentationSelector">
+       <widget class="qMRMLSegmentSelectorWidget" name="segmentationSelector">
         <property name="toolTip">
-         <string>Select the segmentation to check the trajectory against (the "no-go" structure).</string>
-        </property>
-        <property name="nodeTypes">
-         <stringlist notr="true">
-          <string>vtkMRMLSegmentationNode</string>
-         </stringlist>
-        </property>
-        <property name="showChildNodeTypes">
-         <bool>false</bool>
+         <string>Pick the segmentation and the specific segment to check the trajectory against (the "no-go" structure).</string>
         </property>
         <property name="noneEnabled">
          <bool>true</bool>
-        </property>
-        <property name="addEnabled">
-         <bool>false</bool>
-        </property>
-        <property name="removeEnabled">
-         <bool>false</bool>
         </property>
        </widget>
       </item>
@@ -151,6 +137,11 @@
    <class>qMRMLNodeComboBox</class>
    <extends>QWidget</extends>
    <header>qMRMLNodeComboBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>qMRMLSegmentSelectorWidget</class>
+   <extends>QWidget</extends>
+   <header>qMRMLSegmentSelectorWidget.h</header>
   </customwidget>
   <customwidget>
    <class>qMRMLWidget</class>

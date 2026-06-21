@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import vtk
 
@@ -229,20 +230,29 @@ class NeedlePathPlannerWidget(ScriptedLoadableModuleWidget, VTKObservationMixin)
 
             trajectoryModel = slicer.mrmlScene.GetFirstNodeByName("TrajectoryLine")
             segmentationNode = self.ui.segmentationSelector.currentNode()
-            if segmentationNode:
-                crossesVessel = self.logic.checkClearance(segmentationNode)
+            segmentId = self.ui.segmentationSelector.currentSegmentID()
+            if segmentationNode and segmentId:
+                # Human-readable name of the chosen segment (e.g. "Segment_1"), so the
+                # result reports exactly what was tested instead of always saying "vessel".
+                segment = segmentationNode.GetSegmentation().GetSegment(segmentId)
+                segmentName = segment.GetName() if segment else segmentId
+                logging.info(f"[NeedlePathPlanner] Checking clearance against segmentation "
+                             f"'{segmentationNode.GetName()}', segment '{segmentName}'")
+                crossesVessel = self.logic.checkClearance(segmentationNode, segmentId)
+                logging.info(f"[NeedlePathPlanner] Result: {'CROSSES' if crossesVessel else 'CLEAR'}")
                 if crossesVessel:
-                    self.ui.resultLabel.setText("Crosses vessel — re-plan")
+                    self.ui.resultLabel.setText(f"Crosses '{segmentName}' — re-plan")
                     self.ui.resultLabel.setStyleSheet("color: #b91c1c; font-weight: bold;")
                     if trajectoryModel and trajectoryModel.GetDisplayNode():
                         trajectoryModel.GetDisplayNode().SetColor(0.8, 0.1, 0.1)  # red
                 else:
-                    self.ui.resultLabel.setText("Clear")
+                    self.ui.resultLabel.setText(f"Clear of '{segmentName}'")
                     self.ui.resultLabel.setStyleSheet("color: #15803d; font-weight: bold;")
                     if trajectoryModel and trajectoryModel.GetDisplayNode():
                         trajectoryModel.GetDisplayNode().SetColor(0.1, 0.7, 0.1)  # green
             else:
-                self.ui.resultLabel.setText("Trajectory drawn (select a segmentation to check clearance)")
+                logging.info("[NeedlePathPlanner] No segmentation/segment selected — trajectory drawn without a clearance check")
+                self.ui.resultLabel.setText("Trajectory drawn (select a segmentation + segment to check clearance)")
                 self.ui.resultLabel.setStyleSheet("")
 
 
@@ -278,6 +288,10 @@ class NeedlePathPlannerLogic(ScriptedLoadableModuleLogic):
         if not fiducialNode:
             fiducialNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", nodeName)
             fiducialNode.CreateDefaultDisplayNodes()
+            logging.info(f"[NeedlePathPlanner] Created new fiducial node '{nodeName}'")
+        else:
+            logging.info(f"[NeedlePathPlanner] Reusing fiducial node '{nodeName}' "
+                         f"(clearing {fiducialNode.GetNumberOfControlPoints()} existing point(s))")
 
         # Clear any previous point so clicking the button again lets the user redo it
         fiducialNode.RemoveAllControlPoints()
@@ -286,6 +300,7 @@ class NeedlePathPlannerLogic(ScriptedLoadableModuleLogic):
         selectionNode.SetActivePlaceNodeID(fiducialNode.GetID())
         interactionNode = slicer.app.applicationLogic().GetInteractionNode()
         interactionNode.SetCurrentInteractionMode(interactionNode.Place)
+        logging.info(f"[NeedlePathPlanner] Entered place mode for '{nodeName}' — click in a slice/3D view")
 
     def planTrajectory(self) -> None:
         """
@@ -303,6 +318,9 @@ class NeedlePathPlannerLogic(ScriptedLoadableModuleLogic):
         targetRAS = [0.0, 0.0, 0.0]
         entryNode.GetNthControlPointPositionWorld(0, entryRAS)
         targetNode.GetNthControlPointPositionWorld(0, targetRAS)
+        logging.info(f"[NeedlePathPlanner] Entry RAS={[round(v, 1) for v in entryRAS]}, "
+                     f"Target RAS={[round(v, 1) for v in targetRAS]}, "
+                     f"length={math.dist(entryRAS, targetRAS):.1f} mm")
 
         lineSource = vtk.vtkLineSource()
         lineSource.SetPoint1(entryRAS)
@@ -317,10 +335,13 @@ class NeedlePathPlannerLogic(ScriptedLoadableModuleLogic):
         trajectoryModel.GetDisplayNode().SetLineWidth(3)
         trajectoryModel.GetDisplayNode().SetColor(1.0, 1.0, 1.0)  # white until clearance is checked
 
-    def checkClearance(self, segmentationNode) -> bool:
+    def checkClearance(self, segmentationNode, segmentId: str) -> bool:
         """
-        Test whether the current trajectory intersects the given segmentation.
-        Returns True if the line crosses the segmentation (unsafe), False if clear.
+        Test whether the current trajectory intersects the given segment.
+        `segmentId` is the explicit segment chosen by the user as the no-go
+        structure — never assume an index/order, since a segmentation can hold
+        several segments (e.g. vessel + tumor) in an order we don't control.
+        Returns True if the line crosses that segment (unsafe), False if clear.
         """
         entryNode = slicer.mrmlScene.GetFirstNodeByName("EntryPoint")
         targetNode = slicer.mrmlScene.GetFirstNodeByName("TargetPoint")
@@ -337,15 +358,21 @@ class NeedlePathPlannerLogic(ScriptedLoadableModuleLogic):
 
         # Step 1 — convert the segmentation's label map to a closed surface mesh
         segmentationNode.CreateClosedSurfaceRepresentation()
-        segmentIds = vtk.vtkStringArray()
-        segmentationNode.GetSegmentation().GetSegmentIDs(segmentIds)
-        if segmentIds.GetNumberOfValues() == 0:
+        segmentation = segmentationNode.GetSegmentation()
+        if segmentation.GetNumberOfSegments() == 0:
             raise ValueError("The segmentation has no segments")
+        if not segmentId or not segmentation.GetSegment(segmentId):
+            raise ValueError("No valid segment selected to check the trajectory against")
+
+        logging.info(f"[NeedlePathPlanner] Segmentation '{segmentationNode.GetName()}' "
+                     f"— testing against user-selected segment '{segmentId}'")
 
         polyData = vtk.vtkPolyData()
-        segmentationNode.GetClosedSurfaceRepresentation(segmentIds.GetValue(0), polyData)
+        segmentationNode.GetClosedSurfaceRepresentation(segmentId, polyData)
         if polyData.GetNumberOfPoints() == 0:
             raise ValueError("Could not get a closed surface from the segmentation")
+        logging.info(f"[NeedlePathPlanner] Closed surface for '{segmentId}': "
+                     f"{polyData.GetNumberOfPoints()} points, {polyData.GetNumberOfCells()} triangles")
 
         # Step 2 — build an OBB tree (spatial index) over the mesh
         # vtkOBBTree wraps groups of triangles in oriented bounding boxes so the
@@ -357,7 +384,10 @@ class NeedlePathPlannerLogic(ScriptedLoadableModuleLogic):
         # Step 3 — test the entry->target line segment against the surface
         intersectionPoints = vtk.vtkPoints()
         hit = obbTree.IntersectWithLine(entryRAS, targetRAS, intersectionPoints, None)
-        return bool(hit) and intersectionPoints.GetNumberOfPoints() > 0
+        crossesVessel = bool(hit) and intersectionPoints.GetNumberOfPoints() > 0
+        logging.info(f"[NeedlePathPlanner] IntersectWithLine against '{segmentId}': hit={bool(hit)}, "
+                     f"intersection points={intersectionPoints.GetNumberOfPoints()} -> crosses={crossesVessel}")
+        return crossesVessel
 
 
 #
