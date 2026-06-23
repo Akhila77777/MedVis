@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Risk Analysis (study version) — NeedlePathPlanner</title>
+<style>
+  :root {
+    --accent: #2563eb;
+    --bg: #fafafa;
+    --text: #1f2330;
+    --muted: #5b6472;
+    --border: #e3e6ea;
+    --good: #15803d;
+    --bad: #b91c1c;
+  }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+  h1, h2, h3, h4 { line-height: 1.25; }
+  h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+  h2 { margin-top: 2.6rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--border); }
+  h3 { margin-top: 1.4rem; }
+  .subtitle { color: var(--muted); margin-top: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.86rem; }
+  th, td { border: 1px solid var(--border); padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
+  th { background: #eef2ff; }
+  code { background: #f1f3f6; padding: 0.12rem 0.3rem; border-radius: 4px; font-size: 0.9em; }
+  .callout { background: #eef6ff; border-left: 4px solid var(--accent); padding: 0.8rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0; }
+  .warn { background: #fff7ed; border-left: 4px solid #ea580c; padding: 0.8rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0; }
+  .interview { background: #fefce8; border-left: 4px solid #ca8a04; padding: 0.7rem 1rem; border-radius: 0 6px 6px 0; margin: 0.8rem 0; font-size: 0.95rem; }
+  .interview strong { color: #92400e; }
+  .chain { font-size: 1.05rem; text-align: center; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem; margin: 1rem 0; }
+  .chain b { color: var(--accent); }
+  .risk-high { color: var(--bad); font-weight: 700; }
+  .risk-med { color: #b45309; font-weight: 700; }
+  .risk-low { color: var(--good); font-weight: 700; }
+  .h1c { background: #f1f5f9; color: #475569; border-radius: 4px; padding: 0.05rem 0.4rem; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
+  .std-card { border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 1.1rem 1rem; margin: 1rem 0; background: #fff; }
+  .std-card h3 { color: var(--accent); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>Risk Analysis — study version</h1>
+<p class="subtitle">An ISO 14971-style hazard analysis of the
+<strong>NeedlePathPlanner</strong> needle-planning workflow. Companion to the canonical
+<a href="../risk-analysis/hazard-analysis.md">hazard-analysis.md</a> and
+<a href="guide/06-risk-iso14971.md">Module 6 of the learning guide</a>.</p>
+
+<div class="warn">
+<strong>Honesty note.</strong> This is a <em>learning-scale</em> hazard analysis, not a
+regulatory risk management file — no risk policy, no clinical data, no formal review. It
+demonstrates ISO 14971 <em>thinking</em> (the hazard chain, risk controls, residual risk,
+traceability), and it covers <strong>software-related hazards only</strong>.
+</div>
+
+<h2>1. The risk chain (the core mental model)</h2>
+<p>ISO 14971 keeps three words strictly separate — risk controls attack different links:</p>
+<div class="chain">
+  <b>Hazard</b> &nbsp;→&nbsp; <span class="muted">(sequence of events)</span> &nbsp;→&nbsp;
+  <b>Hazardous situation</b> &nbsp;→&nbsp; <b>Harm</b>
+</div>
+<table>
+  <tr><th>Term</th><th>Meaning</th><th>Example (this tool)</th></tr>
+  <tr><td>Hazard</td><td>Potential source of harm (a condition)</td><td>The planned path passes through a vessel</td></tr>
+  <tr><td>Hazardous situation</td><td>A person is <em>exposed</em> to the hazard</td><td>Clinician advances the needle believing it clear</td></tr>
+  <tr><td>Harm</td><td>The actual injury</td><td>Vessel laceration, internal haemorrhage</td></tr>
+</table>
+
+<h2>2. Risk estimation scales</h2>
+<p><strong>Severity (S):</strong> 1 Negligible · 2 Minor · 3 Serious · 4 Critical · 5 Catastrophic.
+<br><strong>Probability (P):</strong> 1 Improbable · 2 Remote · 3 Occasional · 4 Probable · 5 Frequent.
+<br><strong>Risk = S × P:</strong> <span class="risk-low">1–4 Low</span> ·
+<span class="risk-med">5–9 Medium</span> · <span class="risk-high">10–25 High</span>.</p>
+
+<div class="interview">
+<strong>Software probability caveat.</strong> A software fault is <em>systematic</em>, not
+random — you can't "probability-rate a bug" the way you rate a resistor's failure. So P here
+is the worst-case likelihood that the hazardous situation reaches <em>harm</em> given the
+controls (including the human-in-the-loop). This is exactly why IEC 62304's software safety
+class is driven by <em>severity</em>, not a failure rate.
+</div>
+
+<h2>3. Risk-control hierarchy (ISO 14971 §7 — priority order)</h2>
+<ol>
+  <li><strong>Inherently safe design</strong> — design the hazard out. <em>(REQ-006 computes the intersection automatically.)</em></li>
+  <li><strong>Protective measures</strong> — guards/alarms. <em>(REQ-009 never shows a false "Clear"; REQ-018 errors instead of failing silently.)</em></li>
+  <li><strong>Information for safety</strong> — labels, warnings, training. <em>(REQ-008 colour-coding, REQ-010 naming the segment.)</em> <strong>Weakest tier</strong> — a warning can be ignored.</li>
+</ol>
+
+<h2>4. Hazard table</h2>
+<table>
+  <tr>
+    <th>ID</th><th>Hazard</th><th>Cause / sequence</th><th>Hazardous situation</th><th>Harm</th>
+    <th>S</th><th>Initial</th><th>Risk controls → REQ</th><th>Residual</th>
+  </tr>
+  <tr>
+    <td>H-01</td>
+    <td>Planned path passes through a blood vessel</td>
+    <td>Software tests the wrong segment (the <code>GetValue(0)</code> bug) or user misjudges depth in 2D → false "Clear"</td>
+    <td>Clinician advances the needle along a vessel-crossing path</td>
+    <td>Vessel laceration, haemorrhage</td>
+    <td>4</td>
+    <td><span class="risk-high">12 High</span></td>
+    <td>REQ-006 <span class="h1c">①</span>; REQ-005/015 <span class="h1c">①</span>; REQ-009 <span class="h1c">②</span>; REQ-007/008/010 <span class="h1c">③</span>; clinician + imaging <span class="h1c">ext</span></td>
+    <td><span class="risk-med">8 Medium</span></td>
+  </tr>
+  <tr>
+    <td>H-02</td>
+    <td>Stale clearance result trusted after a re-plan</td>
+    <td>Point moved after a check but result not refreshed → stale "Clear" remains</td>
+    <td>Clinician trusts a result that no longer matches the path</td>
+    <td>Vessel laceration, haemorrhage</td>
+    <td>4</td>
+    <td><span class="risk-high">12 High</span></td>
+    <td>REQ-017 <span class="h1c">①</span>; REQ-009 <span class="h1c">②</span>; re-confirm before insertion <span class="h1c">ext</span></td>
+    <td><span class="risk-low">4 Low</span></td>
+  </tr>
+  <tr>
+    <td>H-03</td>
+    <td>No clearance check performed (invalid input / error)</td>
+    <td>Empty segmentation / no segment / missing point → check fails or never runs → no result</td>
+    <td>Clinician advances with no clearance result at all</td>
+    <td>Vessel laceration, haemorrhage</td>
+    <td>4</td>
+    <td><span class="risk-med">8 Medium</span></td>
+    <td>REQ-014 <span class="h1c">①</span>; REQ-005 <span class="h1c">①</span>; REQ-018 <span class="h1c">②</span>; protocol requires documented result <span class="h1c">ext</span></td>
+    <td><span class="risk-low">4 Low</span></td>
+  </tr>
+  <tr>
+    <td>H-04</td>
+    <td>Use error — clearance result misread</td>
+    <td>Result conveyed by colour alone / ambiguous wording → colour-blind or rushed clinician reads it as clear</td>
+    <td>Clinician advances along a path the tool flagged as crossing</td>
+    <td>Vessel laceration, haemorrhage</td>
+    <td>4</td>
+    <td><span class="risk-med">8 Medium</span></td>
+    <td>REQ-010 <span class="h1c">③</span>; REQ-008 <span class="h1c">③</span>; REQ-007 <span class="h1c">②</span>; IEC 62366-1 + training <span class="h1c">ext</span></td>
+    <td><span class="risk-med">8 Medium</span></td>
+  </tr>
+</table>
+<p style="font-size:0.82rem;color:var(--muted)">Control hierarchy: <span class="h1c">①</span> inherently safe design · <span class="h1c">②</span> protective measure · <span class="h1c">③</span> information for safety · <span class="h1c">ext</span> external/process.</p>
+
+<div class="interview">
+<strong>Interview angle — why H-04 stays Medium.</strong> Its controls are almost all
+<em>information for safety</em> (the weakest tier). You cannot mitigate a use-error away with
+another label — it needs a formal IEC 62366-1 usability study and a redundant indicator
+(text + icon + colour). Saying that honestly shows you understand the control hierarchy.
+</div>
+
+<h2>5. Residual risk summary</h2>
+<p>After controls, H-01/H-02/H-03 reduce to <span class="risk-low">Low</span>–<span class="risk-med">Medium</span>
+and H-04 remains <span class="risk-med">Medium</span>. Every residual risk depends partly on
+the <strong>mandatory human-in-the-loop</strong> — the device is a planning aid; the
+radiologist reviews the plan and uses independent intra-procedure imaging. On that basis the
+residual risks are judged <strong>acceptable</strong> for this learning-scale tool, given the
+benefit of catching vessel-crossing trajectories before insertion. The most valuable next
+engineering step is turning the manual-only verifications (H-02 refresh, H-03 error handling)
+into automated regression tests so the controls stay verified as the code evolves.</p>
+
+<h2>6. Closing the loop (the payoff)</h2>
+<div class="callout">
+The whole project becomes one connected argument:
+<br><br>
+<strong>ISO 14971 hazard</strong> (vessel puncture) → <strong>risk control</strong> →
+<strong>REQ-006</strong> "determine intersection" (Module 5) → <strong>"Verify clearance"</strong>
+function (Module 4) → <strong><code>checkClearance()</code></strong> + its unit tests (Module 3).
+<br><br>
+Hazard to line of code, and back — traceable in both directions (IEC 62304).
+</div>
+
+<h2>7. Standards reference (for study)</h2>
+
+<div class="std-card">
+<h3>ISO 14971 — risk management</h3>
+<p>The standard behind this whole page. Identify hazards → estimate &amp; evaluate risk →
+implement <strong>risk controls</strong> (in the §7 hierarchy) → evaluate <strong>residual
+risk</strong> → weigh against benefit. The output is the risk management file this table
+emulates. <strong>ISO/TR 24971</strong> is the official guidance with worked examples.</p>
+</div>
+
+<div class="std-card">
+<h3>IEC 62304 — medical device software lifecycle</h3>
+<p>Software items that can contribute to a hazardous situation get a <strong>safety class
+(A/B/C)</strong> driven by severity; software risk control measures must be specified and
+verified (§7) and traced. Our Class B decision <em>comes from</em> this analysis.</p>
+</div>
+
+<div class="std-card">
+<h3>IEC 62366-1 — usability engineering</h3>
+<p>Owns <strong>H-04</strong>: harm caused by <em>use error</em>, not a code fault. A real
+device file would run formative/summative usability evaluations to justify the residual
+risk of a misread result.</p>
+</div>
+
+<div class="std-card">
+<h3>EU MDR 2017/745</h3>
+<p>Requires a documented <strong>risk management system</strong> across the lifecycle (Annex I
+GSPR §3) and that risks be reduced as far as possible. ISO 14971 is the harmonised standard
+used to demonstrate this.</p>
+</div>
+
+</body>
+</html>
