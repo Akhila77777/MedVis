@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Requirements Spec (study version) — NeedlePathPlanner</title>
+<style>
+  :root {
+    --accent: #2563eb;
+    --bg: #fafafa;
+    --text: #1f2330;
+    --muted: #5b6472;
+    --border: #e3e6ea;
+    --good: #15803d;
+    --bad: #b91c1c;
+  }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--bg);
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+  h1, h2, h3, h4 { line-height: 1.25; }
+  h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+  h2 { margin-top: 2.6rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--border); }
+  h3 { margin-top: 1.4rem; }
+  .subtitle { color: var(--muted); margin-top: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  th, td { border: 1px solid var(--border); padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
+  th { background: #eef2ff; }
+  code { background: #f1f3f6; padding: 0.12rem 0.3rem; border-radius: 4px; font-size: 0.9em; }
+  .callout { background: #eef6ff; border-left: 4px solid var(--accent); padding: 0.8rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0; }
+  .warn { background: #fff7ed; border-left: 4px solid #ea580c; padding: 0.8rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0; }
+  .interview { background: #fefce8; border-left: 4px solid #ca8a04; padding: 0.7rem 1rem; border-radius: 0 6px 6px 0; margin: 0.8rem 0; font-size: 0.95rem; }
+  .interview strong { color: #92400e; }
+  .rc { color: var(--bad); font-weight: 700; }
+  .tag { display: inline-block; background: #e0f2fe; color: #075985; border-radius: 4px; padding: 0.05rem 0.4rem; font-size: 0.78rem; font-weight: 600; }
+  .tag.nf { background: #ede9fe; color: #5b21b6; }
+  .tag.c { background: #f1f5f9; color: #475569; }
+  .std-card { border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 1.1rem 1rem; margin: 1rem 0; background: #fff; }
+  .std-card h3 { color: var(--accent); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>Requirements Specification — study version</h1>
+<p class="subtitle">A standards-annotated walkthrough of the requirements for the
+<strong>NeedlePathPlanner</strong> needle-planning module. Companion to the canonical
+<a href="../requirements/requirements.md">requirements.md</a> /
+<a href="../requirements/traceability-matrix.md">traceability-matrix.md</a> and
+<a href="guide/05-requirements-ireb.md">Module 5 of the learning guide</a>.</p>
+
+<div class="warn">
+<strong>Honesty note.</strong> This is a <em>learning-scale</em> artifact that emulates the
+structure of a medical-device software requirements specification. It is <strong>not</strong>
+a regulatory deliverable — there is no quality management system behind it, no formal
+review/approval, and no full risk file. Its purpose is to show you understand how
+requirements, the standards, and traceability fit together.
+</div>
+
+<h2>1. Why a needle planner needs all these standards</h2>
+<p>For software that is itself a medical device, sold in the EU / Germany, several
+standards govern the requirements. Each one touches the spec from a different angle:</p>
+
+<table>
+  <tr><th>Standard / regulation</th><th>What it governs</th><th>How it touches our requirements</th></tr>
+  <tr><td><strong>EU MDR 2017/745</strong></td><td>Market access in the EU</td>
+      <td>Demands a defined <em>intended purpose</em> and conformance to the General Safety &amp;
+      Performance Requirements (GSPRs, Annex I). Software-as-a-medical-device is classified
+      via Rule 11.</td></tr>
+  <tr><td><strong>ISO 13485</strong></td><td>Quality Management System</td>
+      <td>Design controls: requirements are the <em>design inputs</em>; verification checks the
+      output against them.</td></tr>
+  <tr><td><strong>IEC 62304</strong></td><td>Medical device <em>software</em> lifecycle</td>
+      <td>The central one here: software <strong>safety classification (A/B/C)</strong>,
+      software <strong>requirements analysis (§5.2)</strong>, and <strong>bidirectional
+      traceability</strong>.</td></tr>
+  <tr><td><strong>ISO 14971</strong></td><td>Risk management</td>
+      <td>Every <em>risk control</em> must trace to a requirement — the rows tagged
+      <span class="rc">RC</span> below.</td></tr>
+  <tr><td><strong>IEC 62366-1</strong></td><td>Usability engineering</td>
+      <td>Use-related requirements (avoiding <em>use error</em>) — e.g. the result must be
+      clearly visible and unambiguous.</td></tr>
+</table>
+
+<h2>2. Intended purpose &amp; safety classification</h2>
+<div class="callout">
+<p><strong>Intended purpose.</strong> NeedlePathPlanner is research/educational software
+intended to assist a trained interventional radiologist in planning a percutaneous needle
+path on a patient's CT/MR images. Given a chosen entry point and a target lesion (e.g. a
+tumour), it displays the straight-line trajectory between them and indicates whether that
+path would intersect a user-designated no-go structure such as a blood vessel — helping
+the clinician reach the target without rupturing critical vessels. It supports planning for
+percutaneous surgery, intervention, and diagnostic procedures. It is a <strong>planning aid
+only</strong>; the radiologist makes the final decision.</p>
+<p><strong>Software safety class (IEC 62304): Class B</strong> — a planning aid with a
+mandatory human-in-the-loop and independent intra-procedure imaging as external risk
+controls. (A conservative reviewer could argue Class C, since a false "Clear" could
+contribute to a vessel puncture.)</p>
+</div>
+
+<h2>3. How to read a requirement</h2>
+<p>Every row is one atomic, verifiable statement using <strong>"shall"</strong>, with a
+stable ID. Type tags: <span class="tag">F</span> functional ·
+<span class="tag nf">NF</span> non-functional (quality) ·
+<span class="tag c">C</span> constraint. A <span class="rc">RC</span> flag means the
+requirement exists to control a hazard (ISO 14971).</p>
+
+<h2>4. The requirements (with standards basis)</h2>
+<table>
+  <tr><th>ID</th><th>Requirement (shall…)</th><th>Type</th><th>RC</th><th>Standards basis</th></tr>
+  <tr><td>REQ-001</td><td>let the user select one CT/MR volume as the planning image.</td><td><span class="tag">F</span></td><td></td><td>IEC 62304 §5.2</td></tr>
+  <tr><td>REQ-002</td><td>let the user place exactly one entry point.</td><td><span class="tag">F</span></td><td></td><td>IEC 62304 §5.2</td></tr>
+  <tr><td>REQ-003</td><td>let the user place exactly one target point.</td><td><span class="tag">F</span></td><td></td><td>IEC 62304 §5.2</td></tr>
+  <tr><td>REQ-004</td><td>compute a straight-line trajectory between the entry and target points.</td><td><span class="tag">F</span></td><td></td><td>IEC 62304 §5.2</td></tr>
+  <tr><td>REQ-005</td><td>require the user to explicitly select which segment is the no-go structure before a clearance result is given.</td><td><span class="tag">F</span></td><td><span class="rc">✔</span></td><td>ISO 14971; IEC 62304 §5.2.2</td></tr>
+  <tr><td>REQ-006</td><td>determine whether the trajectory intersects the selected no-go segment.</td><td><span class="tag">F</span></td><td><span class="rc">✔</span></td><td>ISO 14971; IEC 62304 §5.2</td></tr>
+  <tr><td>REQ-007</td><td>display a pass/fail clearance result before the user proceeds.</td><td><span class="tag">F</span></td><td><span class="rc">✔</span></td><td>ISO 14971; IEC 62366-1</td></tr>
+  <tr><td>REQ-008</td><td>make the clearance result visually distinguishable (colour-coded clear vs. crosses).</td><td><span class="tag nf">NF</span></td><td><span class="rc">✔</span></td><td>IEC 62366-1 (use error)</td></tr>
+  <tr><td>REQ-009</td><td>not display "Clear" unless a clearance computation has actually been performed against a selected segment.</td><td><span class="tag nf">NF</span></td><td><span class="rc">✔</span></td><td>ISO 14971; IEC 62304 §5.2.2</td></tr>
+  <tr><td>REQ-010</td><td>name the specific segment tested in the clearance result.</td><td><span class="tag nf">NF</span></td><td></td><td>IEC 62366-1</td></tr>
+  <tr><td>REQ-011</td><td>run as a scripted module within 3D Slicer 5.x.</td><td><span class="tag c">C</span></td><td></td><td>Design constraint (IEC 62304 §5.1)</td></tr>
+  <tr><td>REQ-012</td><td>handle all point coordinates in the RAS coordinate system.</td><td><span class="tag c">C</span></td><td></td><td>Design constraint</td></tr>
+  <tr><td>REQ-013</td><td>allow the user to re-place the entry and/or target point and re-run the clearance check.</td><td><span class="tag">F</span></td><td></td><td>IEC 62304 §5.2</td></tr>
+  <tr><td>REQ-014</td><td>not perform a clearance check unless both points are placed, and inform the user when one is missing.</td><td><span class="tag">F</span></td><td><span class="rc">✔</span></td><td>ISO 14971; IEC 62304 §5.2</td></tr>
+  <tr><td>REQ-015</td><td>test only the user-selected segment when the segmentation contains multiple segments.</td><td><span class="tag">F</span></td><td><span class="rc">✔</span></td><td>ISO 14971; IEC 62304 §5.2</td></tr>
+  <tr><td>REQ-016</td><td>display the planned trajectory length in millimetres.</td><td><span class="tag">F</span></td><td></td><td>IEC 62304 §5.2</td></tr>
+  <tr><td>REQ-017</td><td>re-evaluate and update the clearance result each time the trajectory is re-planned.</td><td><span class="tag">F</span></td><td><span class="rc">✔</span></td><td>ISO 14971 (no stale result)</td></tr>
+  <tr><td>REQ-018</td><td>report an error rather than crash or produce a result when given invalid input (e.g. a segmentation with no segments).</td><td><span class="tag nf">NF</span></td><td><span class="rc">✔</span></td><td>IEC 62304 §5.2; ISO 14971</td></tr>
+  <tr><td>REQ-019</td><td>return a clearance result within 2 s for a no-go surface up to ~100,000 triangles.</td><td><span class="tag nf">NF</span></td><td></td><td>IEC 62304 §5.2; MDR Annex I</td></tr>
+  <tr><td>REQ-020</td><td>access the input volume and segmentation via the 3D Slicer MRML scene.</td><td><span class="tag c">C</span></td><td></td><td>Design constraint</td></tr>
+</table>
+
+<div class="interview">
+<strong>Interview angle.</strong> REQ-005, REQ-009 and REQ-015 all trace back to one real
+bug — the hardcoded <code>GetValue(0)</code> that produced a false "Clear". A requirement
+written to prevent a failure you actually observed (and that traces to a hazard) is the
+strongest evidence of design-for-safety thinking.
+</div>
+
+<h2>5. Traceability matrix</h2>
+<p>Bidirectional traceability (IEC 62304): each requirement → the Capella function that
+realizes it → the verification that confirms it → the hazard it controls.</p>
+<table>
+  <tr><th>Req</th><th>Realized by (Capella function)</th><th>Verified by</th><th>Type</th><th>Related hazard</th></tr>
+  <tr><td>REQ-001</td><td>Load image</td><td>Manual test</td><td>Verification</td><td>—</td></tr>
+  <tr><td>REQ-002</td><td>Define entry &amp; target</td><td>Manual test</td><td>Verification</td><td>—</td></tr>
+  <tr><td>REQ-003</td><td>Define entry &amp; target</td><td>Manual test</td><td>Verification</td><td>—</td></tr>
+  <tr><td>REQ-004</td><td>Compute trajectory</td><td><code>NeedlePathPlannerTest</code> (unit) + manual</td><td>Verification</td><td>—</td></tr>
+  <tr><td>REQ-005</td><td>Verify clearance</td><td><code>NeedlePathPlannerTest</code> (invalid-segment) + manual</td><td>Verification</td><td>Vessel puncture</td></tr>
+  <tr><td>REQ-006</td><td>Verify clearance</td><td><code>NeedlePathPlannerTest</code> (crossing / clear) + manual</td><td>Verification</td><td>Vessel puncture</td></tr>
+  <tr><td>REQ-007</td><td>Display result</td><td>Manual test</td><td>Verification</td><td>Vessel puncture</td></tr>
+  <tr><td>REQ-008</td><td>Display result</td><td>Manual test (visual)</td><td>Verification</td><td>Vessel puncture</td></tr>
+  <tr><td>REQ-009</td><td>Verify clearance</td><td><code>NeedlePathPlannerTest</code> (invalid-segment) + code review</td><td>Verification</td><td>Vessel puncture</td></tr>
+  <tr><td>REQ-010</td><td>Display result</td><td>Manual test</td><td>Verification</td><td>—</td></tr>
+  <tr><td>REQ-011</td><td>(platform constraint)</td><td>Inspection</td><td>Verification</td><td>—</td></tr>
+  <tr><td>REQ-012</td><td>(coordinate constraint)</td><td>Code review</td><td>Verification</td><td>—</td></tr>
+  <tr><td>REQ-013</td><td>Define entry &amp; target / Verify clearance</td><td>Manual test</td><td>Verification</td><td>—</td></tr>
+  <tr><td>REQ-014</td><td>Verify clearance</td><td>Manual test + code review</td><td>Verification</td><td>Vessel puncture</td></tr>
+  <tr><td>REQ-015</td><td>Verify clearance</td><td>Manual test (real Decathlon data)</td><td>Verification</td><td>Vessel puncture</td></tr>
+  <tr><td>REQ-016</td><td>Compute trajectory / Display result</td><td>Manual test</td><td>Verification</td><td>—</td></tr>
+  <tr><td>REQ-017</td><td>Verify clearance / Display result</td><td>Manual test</td><td>Verification</td><td>Vessel puncture</td></tr>
+  <tr><td>REQ-018</td><td>Verify clearance</td><td><code>NeedlePathPlannerTest</code> (invalid-segment) + manual</td><td>Verification</td><td>Vessel puncture</td></tr>
+  <tr><td>REQ-019</td><td>Verify clearance</td><td>Performance test (manual timing)</td><td>Verification</td><td>—</td></tr>
+  <tr><td>REQ-020</td><td>(architecture constraint)</td><td>Code review</td><td>Verification</td><td>—</td></tr>
+  <tr><td>(Intended purpose)</td><td>—</td><td>Clinician usability / workflow review</td><td><strong>Validation</strong></td><td>—</td></tr>
+</table>
+
+<div class="warn">
+<strong>Honest coverage gaps.</strong> Only REQ-004/005/006/009/018 are automatically
+unit-tested today; the rest rely on manual test or review. REQ-015 (multi-segment) is
+manual-only so far; REQ-019 (performance) has no automated timing test; and the
+<em>validation</em> row is aspirational — no clinician has reviewed the workflow. Naming
+these gaps is better portfolio material than pretending full coverage.
+</div>
+
+<h2>6. Standards reference (for study)</h2>
+
+<div class="std-card">
+<h3>IEC 62304 — medical device software lifecycle</h3>
+<p>The backbone here. Key ideas: classify software by worst-case harm
+(<strong>A/B/C</strong>); perform <strong>software requirements analysis (§5.2)</strong> —
+each requirement uniquely identified, verifiable, and covering categories like functional,
+inputs/outputs, interfaces, and <em>risk control measures (§5.2.2)</em>; and maintain
+<strong>bidirectional traceability</strong> from system requirement → software requirement
+→ architecture → test.</p>
+<div class="interview"><strong>Be ready to say:</strong> "Our tool is Class B because a
+human-in-the-loop is a mandatory external risk control; I documented the reasoning rather
+than just asserting a class."</div>
+</div>
+
+<div class="std-card">
+<h3>ISO 14971 — risk management</h3>
+<p>Defines the risk process: identify hazards, estimate/evaluate risk, implement
+<strong>risk controls</strong>, and verify them. Every risk control must trace to a
+requirement — those are our <span class="rc">RC</span> rows (e.g. REQ-006 "determine
+intersection", REQ-009 "no false Clear"). Module 6 builds the hazard table that these link
+to.</p>
+</div>
+
+<div class="std-card">
+<h3>IEC 62366-1 — usability engineering</h3>
+<p>Targets <strong>use error</strong> — harm caused not by a software fault but by the user
+misreading or misusing the interface. REQ-007 (show a result before proceeding), REQ-008
+(colour-code it) and REQ-010 (name the tested segment) are use-related requirements: they
+make the safety-relevant information impossible to miss or misread.</p>
+</div>
+
+<div class="std-card">
+<h3>EU MDR 2017/745 — market regulation</h3>
+<p>Requires a defined <strong>intended purpose</strong> (section 2 above) and conformance
+to the <strong>General Safety &amp; Performance Requirements</strong> (Annex I). Software is
+classified under <strong>Rule 11</strong> — software providing information used for
+diagnostic/therapeutic decisions is typically Class IIa or higher. Performance claims
+(e.g. REQ-019) ultimately answer to the GSPRs.</p>
+</div>
+
+<div class="std-card">
+<h3>IREB CPRE — requirements quality</h3>
+<p>Not a regulation but the source of our <em>quality bar</em>: every requirement must be
+<strong>unambiguous, verifiable, atomic, necessary, feasible, consistent</strong>. This is
+why "the system shall quickly and clearly handle the data" is rejected (not measurable, not
+atomic) and split into precise, testable statements.</p>
+</div>
+
+</body>
+</html>
