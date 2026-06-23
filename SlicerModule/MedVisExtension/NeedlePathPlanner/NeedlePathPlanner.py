@@ -403,16 +403,94 @@ class NeedlePathPlannerTest(ScriptedLoadableModuleTest):
     """
 
     def setUp(self):
-        """Do whatever is needed to reset the state - typically a scene clear will be enough."""
+        """Reset state before each test by clearing the scene."""
         slicer.mrmlScene.Clear()
 
     def runTest(self):
+        """Run each test in isolation (clearing the scene before each)."""
         self.setUp()
         self.test_logicLoads()
+        self.setUp()
+        self.test_planTrajectory_buildsLine()
+        self.setUp()
+        self.test_checkClearance_crossing_returnsTrue()
+        self.setUp()
+        self.test_checkClearance_clear_returnsFalse()
+        self.setUp()
+        self.test_checkClearance_invalidSegment_raises()
+
+    # --- helpers -------------------------------------------------------------
+
+    def _createPointNode(self, name, position):
+        """Add a single-point fiducial node at the given RAS position."""
+        node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", name)
+        node.AddControlPoint(vtk.vtkVector3d(position[0], position[1], position[2]))
+        return node
+
+    def _createCubeSegmentation(self, bounds=(-10, 10, -10, 10, -10, 10)):
+        """
+        Build a segmentation containing a single cube-shaped segment with known
+        geometry, so we can predict exactly which lines cross it. Returns
+        (segmentationNode, segmentId).
+        """
+        cube = vtk.vtkCubeSource()
+        cube.SetBounds(*bounds)
+        triangulate = vtk.vtkTriangleFilter()  # OBB tree wants triangles
+        triangulate.SetInputConnection(cube.GetOutputPort())
+        triangulate.Update()
+
+        segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode", "TestSeg")
+        segmentationNode.CreateDefaultDisplayNodes()
+        segmentId = segmentationNode.AddSegmentFromClosedSurfaceRepresentation(
+            triangulate.GetOutput(), "TestCube")
+        return segmentationNode, segmentId
+
+    # --- tests ---------------------------------------------------------------
 
     def test_logicLoads(self):
         """Smoke test: confirm the logic class instantiates without error."""
-        self.delayDisplay("Starting the test")
+        self.delayDisplay("test_logicLoads")
         logic = NeedlePathPlannerLogic()
         self.assertIsNotNone(logic)
-        self.delayDisplay("Test passed")
+
+    def test_planTrajectory_buildsLine(self):
+        """planTrajectory should create a TrajectoryLine model with two endpoints."""
+        self.delayDisplay("test_planTrajectory_buildsLine")
+        self._createPointNode("EntryPoint", [0.0, 0.0, 0.0])
+        self._createPointNode("TargetPoint", [10.0, 0.0, 0.0])
+
+        NeedlePathPlannerLogic().planTrajectory()
+
+        model = slicer.mrmlScene.GetFirstNodeByName("TrajectoryLine")
+        self.assertIsNotNone(model)
+        self.assertEqual(model.GetPolyData().GetNumberOfPoints(), 2)
+
+    def test_checkClearance_crossing_returnsTrue(self):
+        """A line driven straight through the cube must be reported as crossing."""
+        self.delayDisplay("test_checkClearance_crossing_returnsTrue")
+        self._createPointNode("EntryPoint", [-50.0, 0.0, 0.0])
+        self._createPointNode("TargetPoint", [50.0, 0.0, 0.0])
+        segmentationNode, segmentId = self._createCubeSegmentation()
+
+        crosses = NeedlePathPlannerLogic().checkClearance(segmentationNode, segmentId)
+        self.assertTrue(crosses)
+
+    def test_checkClearance_clear_returnsFalse(self):
+        """A line passing well clear of the cube must be reported as clear."""
+        self.delayDisplay("test_checkClearance_clear_returnsFalse")
+        self._createPointNode("EntryPoint", [-50.0, 100.0, 0.0])
+        self._createPointNode("TargetPoint", [50.0, 100.0, 0.0])
+        segmentationNode, segmentId = self._createCubeSegmentation()
+
+        crosses = NeedlePathPlannerLogic().checkClearance(segmentationNode, segmentId)
+        self.assertFalse(crosses)
+
+    def test_checkClearance_invalidSegment_raises(self):
+        """Passing a segment id that does not exist must raise, not silently pass."""
+        self.delayDisplay("test_checkClearance_invalidSegment_raises")
+        self._createPointNode("EntryPoint", [-50.0, 0.0, 0.0])
+        self._createPointNode("TargetPoint", [50.0, 0.0, 0.0])
+        segmentationNode, _ = self._createCubeSegmentation()
+
+        with self.assertRaises(ValueError):
+            NeedlePathPlannerLogic().checkClearance(segmentationNode, "no-such-segment")
