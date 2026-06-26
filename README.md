@@ -32,7 +32,7 @@ Follow the thread in the artifacts themselves:
 - 🛡️ Risk — [`risk-analysis/hazard-analysis.md`](risk-analysis/hazard-analysis.md) · study view: [`docs/risk-analysis.html`](docs/risk-analysis.html)
 - 📋 Requirements + matrix — [`requirements/`](requirements/) · study view: [`docs/requirements-spec.html`](docs/requirements-spec.html)
 - 🧩 Architecture model — [`se-model/`](se-model/) (Capella / Arcadia, 4 layers)
-- 💻 Code + tests — [`SlicerModule/MedVisExtension/NeedlePathPlanner/NeedlePathPlanner.py`](SlicerModule/MedVisExtension/NeedlePathPlanner/NeedlePathPlanner.py)
+- 💻 Code + tests — [`SlicerModule/MedVisExtension/NeedlePathPlanner/NeedlePathPlanner.py`](SlicerModule/MedVisExtension/NeedlePathPlanner/NeedlePathPlanner.py) · tests study view: [`docs/unit-tests.html`](docs/unit-tests.html)
 
 ## What this project demonstrates
 

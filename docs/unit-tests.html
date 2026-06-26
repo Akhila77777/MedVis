@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unit Tests (study version) — NeedlePathPlanner</title>
+<style>
+  :root {
+    --accent: #2563eb;
+    --bg: #fafafa;
+    --text: #1f2330;
+    --muted: #5b6472;
+    --border: #e3e6ea;
+    --good: #15803d;
+    --bad: #b91c1c;
+  }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--bg);
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+  h1, h2, h3, h4 { line-height: 1.25; }
+  h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+  h2 { margin-top: 2.6rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--border); }
+  h3 { margin-top: 1.6rem; color: var(--accent); }
+  .subtitle { color: var(--muted); margin-top: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  th, td { border: 1px solid var(--border); padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
+  th { background: #eef2ff; }
+  code { background: #f1f3f6; padding: 0.12rem 0.3rem; border-radius: 4px; font-size: 0.9em; }
+  pre { background: #1f2330; color: #e6e6e6; padding: 0.9rem 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.84rem; line-height: 1.5; }
+  pre code { background: none; color: inherit; padding: 0; }
+  .callout { background: #eef6ff; border-left: 4px solid var(--accent); padding: 0.8rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0; }
+  .warn { background: #fff7ed; border-left: 4px solid #ea580c; padding: 0.8rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0; }
+  .interview { background: #fefce8; border-left: 4px solid #ca8a04; padding: 0.7rem 1rem; border-radius: 0 6px 6px 0; margin: 0.8rem 0; font-size: 0.95rem; }
+  .interview strong { color: #92400e; }
+  .pos { color: var(--good); font-weight: 600; }
+  .neg { color: var(--bad); font-weight: 600; }
+  a { color: var(--accent); }
+  .req { display: inline-block; background: #e0f2fe; color: #075985; border-radius: 4px; padding: 0.05rem 0.4rem; font-size: 0.78rem; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>Unit Tests — study version</h1>
+<p class="subtitle">How the automated tests for the <strong>NeedlePathPlanner</strong> Slicer
+module work, and what each one proves. Companion to the code in
+<a href="../SlicerModule/MedVisExtension/NeedlePathPlanner/NeedlePathPlanner.py">NeedlePathPlanner.py</a>
+and to the <a href="requirements-spec.html">requirements</a> / <a href="risk-analysis.html">risk</a> pages.</p>
+
+<h2>1. Why these tests exist</h2>
+<p>The clearance check is the safety-critical part of this tool — a wrong answer can
+contribute to a vessel puncture (hazard <strong>H-01</strong>). <strong>IEC 62304</strong>
+expects software units like this to be <em>verified by testing</em>, not just clicked
+through by hand. So every test below is also a row of <em>verification evidence</em> in the
+<a href="requirements-spec.html">traceability matrix</a>: it proves a specific requirement
+is actually met, and it will catch any future change that breaks it (a <strong>regression
+test</strong>).</p>
+
+<p>The tests subclass Slicer's <code>ScriptedLoadableModuleTest</code>. The runner calls
+<code>runTest()</code>, which runs each test after a <code>setUp()</code> that clears the
+scene — so every test starts from a clean, <strong>isolated</strong> state.</p>
+
+<h2>2. How to run them</h2>
+<p>In Slicer's <strong>NeedlePathPlanner</strong> module: <em>Reload &amp; Test → "Reload and
+Test"</em>. Or, for explicit output, paste this one line into the Python console:</p>
+<pre><code>import NeedlePathPlanner; slicer.mrmlScene.Clear(); NeedlePathPlanner.NeedlePathPlannerTest().runTest()</code></pre>
+<p>No traceback = all 8 passed. A test failure prints a <code>Traceback</code> ending in an
+<code>AssertionError</code>.</p>
+
+<h2>3. The testing ideas you're learning</h2>
+<table>
+  <tr><th>Idea</th><th>What it means</th><th>Where it shows up</th></tr>
+  <tr><td><strong>Smoke test</strong></td><td>A minimal "does it even start" check</td><td><code>test_logicLoads</code></td></tr>
+  <tr><td><strong>Test fixture / known geometry</strong></td><td>Build an input whose correct answer you already know, so the result is deterministic</td><td>the cube helper <code>_createCubeSegmentation</code></td></tr>
+  <tr><td><strong>Positive vs. negative tests</strong></td><td>Confirm the right answer (<code>assertTrue/False</code>) <em>and</em> that bad input is rejected (<code>assertRaises</code>)</td><td>crossing/clear vs. the "_raises" tests</td></tr>
+  <tr><td><strong>Fail-loud, not fail-safe-looking</strong></td><td>On bad input, <em>raise</em> rather than return a value that could be misread as "Clear"</td><td>the three "_raises" tests</td></tr>
+  <tr><td><strong>Regression test</strong></td><td>Pin a behaviour so a future edit can't silently break it</td><td><code>test_checkClearance_recomputesAfterReplan</code></td></tr>
+  <tr><td><strong>Arrange · Act · Assert</strong></td><td>Set up inputs → call the code → check the result — the shape of every test</td><td>all tests</td></tr>
+</table>
+
+<h2>4. The helpers (test fixtures)</h2>
+<p>Three small helpers build controlled inputs so the tests are deterministic:</p>
+<pre><code>def _createPointNode(self, name, position):
+    # drop a single fiducial point (EntryPoint / TargetPoint) at a known RAS position
+    node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", name)
+    node.AddControlPoint(vtk.vtkVector3d(*position))
+    return node
+
+def _createCubeSegmentation(self, bounds=(-10,10,-10,10,-10,10)):
+    # a 20 mm cube centred on the origin = a "no-go structure" whose geometry we know
+    # exactly, so we can predict which lines cross it
+    ...
+    return segmentationNode, segmentId
+
+def _setSinglePoint(self, name, position):
+    # create-or-move a point, so a test can simulate the user dragging it
+    ...</code></pre>
+<div class="callout">
+<strong>Why a cube?</strong> Real anatomy is unpredictable. A 20&nbsp;mm cube at the origin is
+a fixture: a line along the X-axis through <code>(0,0,0)</code> <em>must</em> cross it; a line
+100&nbsp;mm above <em>must</em> miss it. Known input → known correct answer → a meaningful
+assertion.
+</div>
+
+<h2>5. The eight tests</h2>
+
+<h3>test_logicLoads <span class="req">smoke</span></h3>
+<p>Confirms the <code>NeedlePathPlannerLogic</code> class instantiates without error. The
+"is the wiring intact" baseline — if this fails, nothing else matters.</p>
+
+<h3>test_planTrajectory_buildsLine <span class="req">REQ-004</span></h3>
+<p>Places an entry and target point, calls <code>planTrajectory()</code>, and asserts a
+<code>TrajectoryLine</code> model now exists with exactly <strong>2</strong> points. Proves
+the trajectory is actually built between the two points.</p>
+
+<h3>test_checkClearance_crossing_returnsTrue <span class="req">REQ-006</span></h3>
+<p><span class="pos">Positive test.</span> Entry <code>(-50,0,0)</code> → target
+<code>(50,0,0)</code> drives a line straight through the cube. Asserts
+<code>checkClearance()</code> returns <strong>True</strong> (crosses). This is the core
+"detects danger" behaviour.</p>
+
+<h3>test_checkClearance_clear_returnsFalse <span class="req">REQ-006</span></h3>
+<p>The mirror case: a line 100&nbsp;mm above the cube. Asserts <strong>False</strong> (clear).
+Together with the previous test it proves the check is <em>discriminating</em> — it says yes
+when it should and no when it should, not just one of them.</p>
+
+<h3>test_checkClearance_invalidSegment_raises <span class="req">REQ-005 / REQ-009</span></h3>
+<p><span class="neg">Negative test.</span> Passes a segment id that doesn't exist. Asserts a
+<code>ValueError</code> is <strong>raised</strong>. This is the test that guards against the
+original <code>GetValue(0)</code> bug: the code must refuse to answer rather than silently
+test the wrong thing and return a false "Clear".</p>
+<pre><code>with self.assertRaises(ValueError):
+    NeedlePathPlannerLogic().checkClearance(segmentationNode, "no-such-segment")</code></pre>
+
+<h3>test_planTrajectory_missingTarget_raises <span class="req">REQ-014</span></h3>
+<p><span class="neg">Negative test.</span> Only an entry point is placed. Asserts
+<code>planTrajectory()</code> raises rather than proceeding with incomplete input — the tool
+must not act on half a plan (hazard <strong>H-03</strong>).</p>
+
+<h3>test_checkClearance_emptySegmentation_raises <span class="req">REQ-018</span></h3>
+<p><span class="neg">Negative test.</span> A segmentation node with <em>no segments</em>.
+Asserts a <code>ValueError</code> instead of a crash or a blank result, so the clinician can
+never proceed on a check that never ran (hazard <strong>H-03</strong>).</p>
+
+<h3>test_checkClearance_recomputesAfterReplan <span class="req">REQ-017</span></h3>
+<p><span class="pos">Regression test.</span> Checks a crossing config returns <strong>True</strong>,
+then <em>moves the points</em> to a clear config and asserts it now returns
+<strong>False</strong>. This proves the result follows the <em>live</em> points and never
+goes <em>stale</em> (hazard <strong>H-02</strong> — trusting an out-of-date "Clear").</p>
+<pre><code># crossing -> True
+self._setSinglePoint("EntryPoint", [-50,0,0]); self._setSinglePoint("TargetPoint", [50,0,0])
+self.assertTrue(logic.checkClearance(segmentationNode, segmentId))
+# move clear -> must now be False (recomputed, not cached)
+self._setSinglePoint("EntryPoint", [-50,100,0]); self._setSinglePoint("TargetPoint", [50,100,0])
+self.assertFalse(logic.checkClearance(segmentationNode, segmentId))</code></pre>
+
+<h2>6. What's covered — and what isn't (honest)</h2>
+<p><strong>Unit-tested:</strong> REQ-004, REQ-005, REQ-006, REQ-009, REQ-014, REQ-017,
+REQ-018.</p>
+<div class="warn">
+<strong>Still manual-only (honestly):</strong> <span class="req">REQ-015</span> multi-segment
+selection (needs real multi-segment data, not a single cube), <span class="req">REQ-019</span>
+performance timing, and the visual/usability requirements (REQ-007/008/010). These are
+documented as gaps rather than hidden — which is the point of the exercise.
+</div>
+
+<div class="interview">
+<strong>Interview angle.</strong> "I have positive tests for the correct answer, negative
+tests proving bad input is rejected rather than silently mishandled, and a regression test
+that the result can't go stale — each traced to a requirement and a hazard." That sentence
+demonstrates real verification thinking.
+</div>
+
+</body>
+</html>
