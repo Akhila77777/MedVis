@@ -93,7 +93,8 @@ mapper.ScalarVisibilityOff()
 
 actor = vtk.vtkActor()
 actor.SetMapper(mapper)
-actor.GetProperty().SetColor(0.85, 0.10, 0.10)   # vessel red
+color = (0.85, 0.10, 0.10) if LABEL_VALUE == 1 else (0.95, 0.80, 0.15)  # vessel red / tumor gold
+actor.GetProperty().SetColor(*color)
 actor.GetProperty().SetOpacity(1.0)
 
 # --- 7. RENDERER + WINDOW: show it -----------------------------------------
