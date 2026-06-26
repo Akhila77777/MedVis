@@ -418,6 +418,12 @@ class NeedlePathPlannerTest(ScriptedLoadableModuleTest):
         self.test_checkClearance_clear_returnsFalse()
         self.setUp()
         self.test_checkClearance_invalidSegment_raises()
+        self.setUp()
+        self.test_planTrajectory_missingTarget_raises()
+        self.setUp()
+        self.test_checkClearance_emptySegmentation_raises()
+        self.setUp()
+        self.test_checkClearance_recomputesAfterReplan()
 
     # --- helpers -------------------------------------------------------------
 
@@ -444,6 +450,15 @@ class NeedlePathPlannerTest(ScriptedLoadableModuleTest):
         segmentId = segmentationNode.AddSegmentFromClosedSurfaceRepresentation(
             triangulate.GetOutput(), "TestCube")
         return segmentationNode, segmentId
+
+    def _setSinglePoint(self, name, position):
+        """Create or update a single-point fiducial node, so a point can be 'moved'."""
+        node = slicer.mrmlScene.GetFirstNodeByName(name)
+        if not node:
+            node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", name)
+        node.RemoveAllControlPoints()
+        node.AddControlPoint(vtk.vtkVector3d(position[0], position[1], position[2]))
+        return node
 
     # --- tests ---------------------------------------------------------------
 
@@ -494,3 +509,39 @@ class NeedlePathPlannerTest(ScriptedLoadableModuleTest):
 
         with self.assertRaises(ValueError):
             NeedlePathPlannerLogic().checkClearance(segmentationNode, "no-such-segment")
+
+    def test_planTrajectory_missingTarget_raises(self):
+        """REQ-014 / H-03: with only an entry point placed, planning must raise."""
+        self.delayDisplay("test_planTrajectory_missingTarget_raises")
+        self._createPointNode("EntryPoint", [0.0, 0.0, 0.0])  # no TargetPoint placed
+
+        with self.assertRaises(ValueError):
+            NeedlePathPlannerLogic().planTrajectory()
+
+    def test_checkClearance_emptySegmentation_raises(self):
+        """REQ-018 / H-03: a segmentation with no segments must raise, not give a result."""
+        self.delayDisplay("test_checkClearance_emptySegmentation_raises")
+        self._createPointNode("EntryPoint", [-50.0, 0.0, 0.0])
+        self._createPointNode("TargetPoint", [50.0, 0.0, 0.0])
+        emptySeg = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode", "EmptySeg")
+        emptySeg.CreateDefaultDisplayNodes()
+
+        with self.assertRaises(ValueError):
+            NeedlePathPlannerLogic().checkClearance(emptySeg, "anything")
+
+    def test_checkClearance_recomputesAfterReplan(self):
+        """REQ-017 / H-02: the result must follow the current points, never go stale."""
+        self.delayDisplay("test_checkClearance_recomputesAfterReplan")
+        segmentationNode, segmentId = self._createCubeSegmentation()
+        logic = NeedlePathPlannerLogic()
+
+        # First plan: line driven through the cube -> crosses.
+        self._setSinglePoint("EntryPoint", [-50.0, 0.0, 0.0])
+        self._setSinglePoint("TargetPoint", [50.0, 0.0, 0.0])
+        self.assertTrue(logic.checkClearance(segmentationNode, segmentId))
+
+        # Re-plan with the points moved well clear -> must now report clear,
+        # proving the result is recomputed from the live points (not cached/stale).
+        self._setSinglePoint("EntryPoint", [-50.0, 100.0, 0.0])
+        self._setSinglePoint("TargetPoint", [50.0, 100.0, 0.0])
+        self.assertFalse(logic.checkClearance(segmentationNode, segmentId))

@@ -162,9 +162,10 @@ and H-04 remains <span class="risk-med">Medium</span>. Every residual risk depen
 the <strong>mandatory human-in-the-loop</strong> — the device is a planning aid; the
 radiologist reviews the plan and uses independent intra-procedure imaging. On that basis the
 residual risks are judged <strong>acceptable</strong> for this learning-scale tool, given the
-benefit of catching vessel-crossing trajectories before insertion. The most valuable next
-engineering step is turning the manual-only verifications (H-02 refresh, H-03 error handling)
-into automated regression tests so the controls stay verified as the code evolves.</p>
+benefit of catching vessel-crossing trajectories before insertion. The H-02 (re-plan
+recompute) and H-03 (missing-point and empty-segmentation errors) controls are now covered by
+automated regression tests in <code>NeedlePathPlannerTest</code>, so they stay verified as the
+code evolves.</p>
 
 <h2>6. Closing the loop (the payoff)</h2>
 <div class="callout">

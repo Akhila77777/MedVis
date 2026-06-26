@@ -28,19 +28,19 @@
 | REQ-011 | (platform constraint) | Inspection | Verification | — |
 | REQ-012 | (coordinate constraint) | Code review | Verification | — |
 | REQ-013 | Define entry & target / Verify clearance | Manual test | Verification | — |
-| REQ-014 | Verify clearance | Manual test + code review | Verification | Vessel puncture |
+| REQ-014 | Verify clearance | `NeedlePathPlannerTest` (missing-point) + manual | Verification | Vessel puncture |
 | REQ-015 | Verify clearance | Manual test (real Decathlon data) | Verification | Vessel puncture |
 | REQ-016 | Compute trajectory / Display result | Manual test | Verification | — |
-| REQ-017 | Verify clearance / Display result | Manual test | Verification | Vessel puncture |
-| REQ-018 | Verify clearance | `NeedlePathPlannerTest` (invalid-segment) + manual | Verification | Vessel puncture |
+| REQ-017 | Verify clearance / Display result | `NeedlePathPlannerTest` (re-plan recompute) + manual | Verification | Vessel puncture |
+| REQ-018 | Verify clearance | `NeedlePathPlannerTest` (invalid + empty segmentation) + manual | Verification | Vessel puncture |
 | REQ-019 | Verify clearance | Performance test (manual timing) | Verification | — |
 | REQ-020 | (architecture constraint) | Code review | Verification | — |
 | (Intended purpose) | — | Clinician usability / workflow review | **Validation** | — |
 
 ## Coverage notes (honest gaps)
 
-- **Unit-tested today:** REQ-004, REQ-005, REQ-006, REQ-009, REQ-018 (via
-  `NeedlePathPlannerTest`). Everything else relies on manual test / review.
+- **Unit-tested today:** REQ-004, REQ-005, REQ-006, REQ-009, REQ-014, REQ-017, REQ-018
+  (via `NeedlePathPlannerTest`, 8 tests). Everything else relies on manual test / review.
 - **REQ-015** (multi-segment) is currently verified only by manual testing on real
   Decathlon data; a dedicated multi-segment unit test is a sensible future addition.
 - **REQ-019** (performance) has no automated timing test yet — manual observation only.

@@ -82,7 +82,7 @@
 | Initial P → risk | 3 → **12 (High)** |
 | Risk controls | • REQ-017 re-evaluate and update the result on every re-plan *(inherently safe design)*<br>• REQ-009 never show "Clear" without a real computation against the selected segment *(protective measure)*<br>• Clinician re-confirms the plan immediately before insertion *(external/process control)* |
 | Residual P → risk | 1 → **4 (Low)** — automatic refresh means a stale result cannot persist; acceptable |
-| Residual concern | Depends on REQ-017 covering *every* edit path; currently verified only by manual test — a regression test that the result updates/clears on point-move would strengthen this |
+| Residual concern | Now covered by a regression test (`test_checkClearance_recomputesAfterReplan`) proving the result follows the live points; still depends on REQ-017 covering every UI edit path |
 
 ---
 
@@ -130,9 +130,9 @@ before insertion.
 The weakest point is **H-04** (use error): its controls are predominantly *information for
 safety*, the lowest tier of the ISO 14971 control hierarchy. A real device file would
 address this with a formal usability evaluation (IEC 62366-1) and a redundant result
-indicator. The most valuable next engineering step is converting manual-only verifications
-(H-02 refresh behaviour, H-03 error handling) into automated regression tests, so the risk
-controls stay verified as the code evolves.
+indicator. The H-02 (re-plan recompute) and H-03 (missing-point and empty-segmentation
+errors) controls are now covered by automated regression tests in `NeedlePathPlannerTest`,
+so they stay verified as the code evolves.
 
 > **Note:** This analysis covers software-related hazards only. A full ISO 14971 file would
 > also consider the broader clinical procedure (patient movement, image registration error,
