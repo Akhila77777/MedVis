@@ -32,7 +32,7 @@ module. That mapping *is* the portfolio piece.
 | 5 | [Requirements engineering (IREB)](05-requirements-ireb.md) | Writing requirements, traceability matrix | ✅ Done |
 | 6 | [Risk management (ISO 14971)](06-risk-iso14971.md) | Hazard analysis | ✅ Done |
 | 7 | [VTK/ITK deep dive](07-vtk-itk-deepdive.md) | Visualization pipeline, reproducing a technique from Preim's book | ✅ Done |
-| 8 | [MONAI deep learning (stretch)](08-monai-deep-learning.md) | U-Net segmentation, bridging ML and visualization | Outline |
+| 8 | [MONAI deep learning (stretch)](08-monai-deep-learning.md) | U-Net segmentation, bridging ML and visualization | Ready |
 
 **"Outline" modules** contain the structure (what you'll learn, key terms, the steps
 ahead) but the full concept explanations are written just before you start that module
